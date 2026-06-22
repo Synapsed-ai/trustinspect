@@ -1,0 +1,6 @@
+TrustInspect
+Copyright (c) Synapsed AI Lab and contributors.
+
+Licensed under the Apache License, Version 2.0.
+
+TrustInspect includes test suites and mappings inspired by public Trustworthy AI and AI security testing frameworks, including OWASP LLM Top 10 and OWASP AI Testing Guide. OWASP project names and trademarks belong to the OWASP Foundation. This project is not represented as an official OWASP project unless explicitly accepted by OWASP.

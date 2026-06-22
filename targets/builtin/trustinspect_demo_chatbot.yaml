@@ -1,0 +1,20 @@
+id: trustinspect-demo-chatbot
+name: TrustInspect Demo Chatbot local
+type: web-ui
+category: controlled_demo_target
+status: ready
+url: "http://127.0.0.1:8080/"
+input_selector: "#chatInput"
+output_selector: "#chat-content .bot-message p"
+send_selector: "#sendButton"
+frame_selector: null
+profile_strategy: standard_chat
+supported_suites:
+  - trustinspect-baseline
+  - owasp-llm-top10-2025-light
+recommended_dynamic_tests_per_static: 1
+risk_focus:
+  - hidden_instruction_following
+  - unsafe_output_echo
+  - domain_boundary_escape
+notes: "Controlled local vulnerable/hardened demo target. Start it with demos/trustinspect-demo-chatbot/run_vulnerable.sh or run_hardened.sh before scanning."

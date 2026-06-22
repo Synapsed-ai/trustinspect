@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+
+
+
+def _profile_to_plain_dict(profile):
+    """Return a plain dict from dict/dataclass/pydantic/TargetCapabilityProfile objects."""
+    if profile is None:
+        return {}
+    if isinstance(profile, dict):
+        return profile
+    if hasattr(profile, "to_dict") and callable(profile.to_dict):
+        return profile.to_dict()
+    if hasattr(profile, "model_dump") and callable(profile.model_dump):
+        return profile.model_dump()
+    try:
+        import dataclasses
+        if dataclasses.is_dataclass(profile):
+            return dataclasses.asdict(profile)
+    except Exception:
+        pass
+    if hasattr(profile, "__dict__"):
+        return {
+            k: v
+            for k, v in vars(profile).items()
+            if not k.startswith("_")
+        }
+    return {}
+
+"""Compatibility wrapper around the TrustInspect Dynamic Test Engine.
+
+Existing commands/imports can continue to use trustinspect.testcases.generator,
+while the actual implementation lives in trustinspect.dynamic.
+"""
+
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+
+from trustinspect.dynamic.engine import DynamicTestEngine, generate_dynamic_tests, load_profile, write_tests_yaml
+
+
+def generate_contextual_tests(
+    target_profile: Dict[str, Any],
+    max_tests: Optional[int] = None,
+    max_dynamic_tests: Optional[int] = None,
+    template_dir: str | Path = "examples/dynamic_templates",
+) -> List[Dict[str, Any]]:
+    limit = max_dynamic_tests if max_dynamic_tests is not None else max_tests
+    return generate_dynamic_tests(_profile_to_plain_dict(target_profile), max_dynamic_tests=limit, template_dir=template_dir)
+
+
+def generate_tests_from_profile(
+    target_profile: Dict[str, Any],
+    max_tests: Optional[int] = None,
+    template_dir: str | Path = "examples/dynamic_templates",
+) -> List[Dict[str, Any]]:
+    return generate_contextual_tests(target_profile, max_tests=max_tests, template_dir=template_dir)
+
+
+def main() -> None:
+    # Keep old module CLI working.
+    from trustinspect.dynamic.engine import main as dynamic_main
+
+    dynamic_main()
+
+
+if __name__ == "__main__":
+    main()

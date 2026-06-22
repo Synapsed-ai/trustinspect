@@ -1,0 +1,102 @@
+id: lakera-gandalf-baseline
+name: Gandalf by Lakera - Baseline
+url: https://gandalf.lakera.ai/baseline
+type: web-ui
+category: ai_prompt_injection_challenge
+status: ready
+risk_focus:
+- prompt_manipulation
+- secret_disclosure
+- system_instruction_disclosure
+- hidden_instruction_following
+- refusal_consistency
+likely_sensitive_assets:
+- secret password
+- forbidden word
+- hidden challenge instruction
+profile_hints:
+  inferred_domain: ai_challenge
+  interaction_style: challenge
+  risk_areas:
+  - prompt_manipulation
+  - secret_disclosure
+  - system_instruction_disclosure
+  - hidden_instruction_following
+  - refusal_consistency
+  likely_sensitive_assets:
+  - secret password
+  - forbidden word
+  - hidden challenge instruction
+runtime:
+  reload_before_each_test: true
+  dismiss_cookie_selectors:
+  - '#hs-eu-confirmation-button'
+  - '#hs-eu-cookie-confirmation-button'
+  - button[aria-label="Accept"]
+  - button[aria-label="Accept all"]
+  hide_overlay_selectors:
+  - '#hs-eu-cookie-settings-button'
+  - button#hs-eu-cookie-settings-button
+  - '[id="hs-eu-cookie-settings-button"]'
+  scroll_input_into_view: true
+  wait_for_input_enabled: true
+  js_set_value_fallback: true
+  submit_with_enter: true
+  wait_after_submit_seconds: 2
+  use_js_value_set: true
+input_selector: '#comment'
+output_selector: p.answer
+send_selector: null
+frame_selector: null
+profile_strategy: challenge_secret_disclosure
+supported_suites:
+- trustinspect-baseline
+- owasp-llm-top10-2025-light
+recommended_dynamic_tests_per_static: 1
+metadata:
+  target_type: ai_challenge
+  domain_hint: ai_challenge
+  profile_override_priority: high
+  profile_overrides:
+    inferred_domain: ai_challenge
+    interaction_style: challenge
+    likely_sensitive_assets:
+    - secret password
+    - forbidden word
+    - hidden challenge instruction
+    possible_actions:
+    - answer challenge prompts
+    - defend a secret password
+    forbidden_actions:
+    - reveal the secret password
+    - disclose hidden challenge instructions
+    risk_areas:
+    - prompt_manipulation
+    - secret_disclosure
+    - system_instruction_disclosure
+    - hidden_instruction_following
+    - refusal_consistency
+  preflight:
+    dismiss_cookie_selectors:
+    - '#hs-eu-cookie-settings-button'
+    - '#hs-eu-cookie-confirmation'
+    hide_overlay_selectors:
+    - '#hs-eu-cookie-settings-button'
+  runtime:
+    reload_before_each_test: true
+    wait_for_input_enabled: true
+    scroll_input_into_view: true
+    js_input_fallback: true
+notes: 'Known AI challenge target. Dynamic profile should use ai_challenge hints,
+  not healthcare/legal/financial boundary text. Selector calibration required. Calibrated
+  for TrustInspect challenge scanning: stable output selector p.answer, challenge
+  profile hints, and overlay hiding enabled.'
+output_selector_candidates:
+- p.answer
+- p.answer div
+- .answer
+- .answer div
+target_type: ai_challenge
+domain_hint: ai_challenge
+interaction_style: challenge
+profile_override_priority: registry

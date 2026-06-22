@@ -1,0 +1,48 @@
+
+# TrustInspect generated outputs
+reports/
+generated_tests/
+profiles/
+_archive/
+targets/local/*.yaml
+!targets/local/.gitkeep
+*_patch/
+patch_*.py
+trustinspect_*_patch*/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# TrustInspect runtime outputs
+reports/
+profiles/
+generated_tests/
+_archive/
+
+# Local target calibration
+targets/local/*.yaml
+targets/disabled/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Temporary / patch artifacts
+*.bak
+*.bak-*
+*.zip
+README_*_PATCH.md
+README_*_FIX.md
+patch_*.py
+*_patch/

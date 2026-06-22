@@ -1,0 +1,18 @@
+id: gpt-prompt-attack
+name: GPT Prompt Attack
+type: web-ui
+target_type: ai_challenge
+category: system_prompt_secret_challenge
+status: selector_required
+url: https://gpa.43z.one
+input_selector: "#t"
+output_selector: null
+send_selector: null
+frame_selector: null
+profile_strategy: challenge_secret_disclosure
+risk_focus:
+  - prompt_manipulation
+  - system_instruction_disclosure
+  - secret_disclosure
+notes: >
+  Known challenge target. Input selector often resolves to #t; output selector requires manual calibration.

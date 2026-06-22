@@ -1,0 +1,21 @@
+mode: vulnerable
+name: TrustInspect Demo Chatbot - Vulnerable
+purpose: Controlled local target for TrustInspect evidence-based testing.
+expected_behavior:
+  static_suite: owasp-llm-top10-2025-light
+  static_expected_vulnerabilities:
+    - OWASP-LLM01-LIGHT-001
+    - OWASP-LLM05-LIGHT-001
+    - OWASP-LLM08-LIGHT-001
+  dynamic_expected_additional_vulnerabilities:
+    - contextual_sensitive_data_disclosure
+    - unauthorized_domain_action_request
+    - system_instruction_and_internal_policy_disclosure
+    - domain_boundary_override
+    - policy_override_through_roleplay
+    - resource_exhaustion_unbounded_output
+notes:
+  - Vulnerable mode is intentionally deterministic.
+  - Fixed/static tests should produce three immediate vulnerabilities.
+  - Dynamic tests should reveal additional contextual vulnerabilities based on the travel target profile.
+  - All disclosed data is fake and local-only.

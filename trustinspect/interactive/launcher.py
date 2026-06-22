@@ -1,0 +1,491 @@
+from __future__ import annotations
+
+import re
+import shlex
+import subprocess
+import sys
+from dataclasses import replace
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.prompt import Confirm, Prompt, IntPrompt
+    from rich.text import Text
+    from rich import box
+except Exception:  # pragma: no cover
+    Console = None  # type: ignore
+    Panel = None  # type: ignore
+    Table = None  # type: ignore
+    Confirm = None  # type: ignore
+    Prompt = None  # type: ignore
+    IntPrompt = None  # type: ignore
+    Text = None  # type: ignore
+    box = None  # type: ignore
+
+from trustinspect.targets.registry import (
+    TargetDefinition,
+    archive_target,
+    load_target_registry,
+    normalize_optional_selector,
+    save_local_target,
+)
+from trustinspect.interactive.calibration import calibrate_target_selectors
+
+try:
+    from trustinspect.ui.terminal import make_console, render_banner
+except Exception:  # pragma: no cover
+    make_console = None  # type: ignore
+    render_banner = None  # type: ignore
+
+
+SUITES: List[Dict[str, str]] = [
+    {
+        "id": "trustinspect-baseline",
+        "label": "TrustInspect Baseline",
+        "mode": "test_cases",
+        "value": "examples/test_cases/trustinspect_baseline.yaml",
+        "recommended": "short baseline for demo and regression",
+    },
+    {
+        "id": "owasp-llm-top10-2025-light",
+        "label": "OWASP LLM Top 10 2025 — Light",
+        "mode": "suite",
+        "value": "owasp-llm-top10-2025-light",
+        "recommended": "1 representative test for each OWASP LLM category",
+    },
+    {
+        "id": "owasp-llm-top10-2025-full",
+        "label": "OWASP LLM Top 10 2025 — Full",
+        "mode": "suite",
+        "value": "owasp-llm-top10-2025-full",
+        "recommended": "complete converted OWASP corpus; may take long",
+    },
+    {
+        "id": "owasp-aitg-light",
+        "label": "OWASP AI Testing Guide — Light",
+        "mode": "suite",
+        "value": "owasp-aitg-light",
+        "recommended": "32 base TrustInspect checks mapped to OWASP AITG",
+    },
+    {
+        "id": "owasp-aitg-full",
+        "label": "OWASP AI Testing Guide — Full",
+        "mode": "suite",
+        "value": "owasp-aitg-full",
+        "recommended": "32 x 5 evidence-based AITG scenarios/checks; may take long",
+    },
+]
+
+
+class _FallbackPrompt:
+    @staticmethod
+    def ask(label: str, default: Optional[str] = None, choices=None):
+        suffix = f" [{default}]" if default is not None else ""
+        value = input(f"{label}{suffix}: ").strip()
+        return value or default
+
+
+class _FallbackConfirm:
+    @staticmethod
+    def ask(label: str, default: bool = False):
+        suffix = "Y/n" if default else "y/N"
+        value = input(f"{label} [{suffix}]: ").strip().lower()
+        if not value:
+            return default
+        return value.startswith("y")
+
+
+def _console():
+    if make_console:
+        return make_console()
+    if Console:
+        return Console()
+    return None
+
+
+def _print(console, message: str, style: Optional[str] = None) -> None:
+    if console:
+        console.print(message, style=style)
+    else:
+        print(message)
+
+
+def _prompt(label: str, default: Optional[str] = None, choices=None) -> str:
+    if Prompt:
+        return Prompt.ask(label, default=default, choices=choices)
+    return _FallbackPrompt.ask(label, default=default, choices=choices)
+
+
+def _confirm(label: str, default: bool = False) -> bool:
+    if Confirm:
+        return Confirm.ask(label, default=default)
+    return _FallbackConfirm.ask(label, default=default)
+
+
+def _int_prompt(label: str, default: int = 0) -> int:
+    if IntPrompt:
+        return IntPrompt.ask(label, default=default)
+    try:
+        return int(input(f"{label} [{default}]: ").strip() or str(default))
+    except Exception:
+        return default
+
+
+def _raw_prompt(label: str, default: str = "") -> str:
+    if Prompt:
+        return Prompt.ask(label, default=default)
+    value = input(f"{label} [{default}]: ").strip()
+    return value or default
+
+
+def _slugify(value: str) -> str:
+    value = value.lower().strip()
+    value = re.sub(r"^https?://", "", value)
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    return value.strip("-") or "target"
+
+
+def _status_style(status: str) -> str:
+    status = (status or "").lower()
+    if status == "ready":
+        return "green"
+    if "selector" in status:
+        return "yellow"
+    if "error" in status:
+        return "red"
+    return "cyan"
+
+
+def _category_label(target: TargetDefinition) -> str:
+    value = target.category or target.type or "ai_target"
+    return value.replace("_", " ")
+
+
+def _target_table(console, targets: List[TargetDefinition]) -> None:
+    if not console or not Table:
+        for idx, t in enumerate(targets, 1):
+            print(f"[{idx}] {t.name} ({'ready' if t.is_ready else 'selector_required'}) - {t.url}")
+        print("Type a number to select, D<number> to disable/archive a target, or 0 to add a new target.")
+        return
+
+    table = Table(title="Known AI Targets", show_lines=False, box=box.SIMPLE_HEAVY if box else None)
+    table.add_column("#", style="green", width=4, justify="right")
+    table.add_column("Target", no_wrap=False, style="bright_white")
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Type", no_wrap=False, style="white")
+    table.add_column("URL", style="bright_cyan", overflow="fold")
+
+    for idx, target in enumerate(targets, 1):
+        status = "ready" if target.is_ready else "selector_required"
+        table.add_row(
+            str(idx),
+            target.name,
+            f"[{_status_style(status)}]{status}[/{_status_style(status)}]",
+            _category_label(target),
+            target.url,
+        )
+    console.print(table)
+    console.print("[dim]Select a number to run, [bold yellow]D<number>[/bold yellow] to disable/archive a row, or [bold]0[/bold] to add a new target.[/dim]")
+
+
+def _target_detail_panel(console, target: TargetDefinition) -> None:
+    if not console or not Panel or not Table:
+        print(f"Selected target: {target.name}\nURL: {target.url}")
+        return
+
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="bold green", width=16)
+    table.add_column()
+    table.add_row("Target", target.name)
+    table.add_row("URL", target.url)
+    table.add_row("Status", "ready" if target.is_ready else "selector_required")
+    table.add_row("Type", _category_label(target))
+    table.add_row("Input", target.input_selector or "-")
+    table.add_row("Output", target.output_selector or "-")
+    if target.send_selector:
+        table.add_row("Send", target.send_selector)
+    if target.frame_selector:
+        table.add_row("Frame", target.frame_selector)
+    if target.risk_focus:
+        table.add_row("Focus", ", ".join(target.risk_focus))
+    if target.source_path:
+        table.add_row("Config", target.source_path)
+    if target.notes:
+        table.add_row("Notes", target.notes)
+
+    console.print(Panel(table, title="Selected Target", border_style="green"))
+
+
+def _suite_table(console) -> None:
+    if not console or not Table:
+        for idx, suite in enumerate(SUITES, 1):
+            print(f"[{idx}] {suite['label']} - {suite['recommended']}")
+        return
+    table = Table(title="Static Test Suites", show_lines=False, box=box.SIMPLE_HEAVY if box else None)
+    table.add_column("#", style="green", width=4, justify="right")
+    table.add_column("Suite")
+    table.add_column("Description", style="white")
+    for idx, suite in enumerate(SUITES, 1):
+        table.add_row(str(idx), suite["label"], suite["recommended"])
+    console.print(table)
+
+
+def _calibrate_target(target: TargetDefinition, save: bool = True) -> TargetDefinition:
+    return calibrate_target_selectors(target=target, console=_console(), save=save, wait_time=20)
+
+
+def _new_target_wizard() -> TargetDefinition:
+    url = _prompt("Target URL")
+    parsed = urlparse(url)
+    host = parsed.hostname or _slugify(url)
+    target = TargetDefinition(
+        id=_slugify(host),
+        name=_prompt("Target display name", default=host),
+        url=url,
+        type="web-ui",
+        category="custom_ai_target",
+        status="selector_required",
+        profile_strategy="standard_chat",
+        supported_suites=["trustinspect-baseline", "owasp-llm-top10-2025-light"],
+        risk_focus=["prompt_manipulation", "sensitive_data_exposure", "hidden_instruction_following"],
+        notes="Local target added from the interactive wizard.",
+    )
+    return _calibrate_target(target, save=True)
+
+
+def _delete_target_row(console, targets: List[TargetDefinition], row: int) -> None:
+    if row < 1 or row > len(targets):
+        _print(console, f"Invalid delete row: D{row}", "red")
+        return
+    target = targets[row - 1]
+    _target_detail_panel(console, target)
+    _print(console, "This will archive the target YAML file. It will not be permanently deleted.", "yellow")
+    if not _confirm(f"Disable/archive target row {row} ({target.name})?", default=False):
+        _print(console, "Delete cancelled.", "dim")
+        return
+    dest = archive_target(target)
+    if dest:
+        _print(console, f"[+] Target archived to {dest}", "green")
+    else:
+        _print(console, "Target could not be archived because no source file was found.", "red")
+
+
+def _choose_target() -> Optional[TargetDefinition]:
+    console = _console()
+
+    while True:
+        registry = load_target_registry()
+        targets = registry.list()
+        if not targets:
+            _print(console, "No known targets found. Creating a new target.", "yellow")
+            return _new_target_wizard()
+
+        _target_table(console, targets)
+        raw_choice = (_raw_prompt("Select target number, D<number> to disable/archive, or 0 to add", default="1") or "").strip()
+        delete_match = re.fullmatch(r"[dD]\s*(\d+)", raw_choice)
+        if delete_match:
+            _delete_target_row(console, targets, int(delete_match.group(1)))
+            continue
+
+        try:
+            choice = int(raw_choice)
+        except ValueError:
+            _print(console, "Invalid target selection.", "red")
+            continue
+
+        if choice == 0:
+            target = _new_target_wizard()
+        elif 1 <= choice <= len(targets):
+            target = targets[choice - 1]
+        else:
+            _print(console, "Invalid target selection.", "red")
+            continue
+
+        _target_detail_panel(console, target)
+
+        if not target.is_ready:
+            _print(console, f"Target '{target.name}' is known but not calibrated on this machine.", "yellow")
+            if _confirm("Run selector calibration now?", default=True):
+                target = _calibrate_target(target, save=True)
+            else:
+                return None
+
+        if not target.is_ready:
+            _print(console, "Cannot run assessment: target selectors are incomplete.", "red")
+            return None
+
+        return target
+
+
+def _choose_suite() -> Dict[str, str]:
+    console = _console()
+    _suite_table(console)
+    choice = _int_prompt("Select static suite", default=2)
+    if choice < 1 or choice > len(SUITES):
+        choice = 2
+    suite = SUITES[choice - 1]
+    return suite
+
+
+def _choose_dynamic() -> Tuple[int, Optional[int]]:
+    console = _console()
+    _print(console, "\n[bold green]Dynamic testing[/bold green]")
+    _print(console, "Dynamic tests are contextual variants generated for each static test using the Target Capability Profile.", "dim")
+    _print(console, "[0] Static only")
+    _print(console, "[1] Add 1 dynamic test per static test")
+    _print(console, "[2] Add 2 dynamic tests per static test")
+    _print(console, "[3] Custom")
+    choice = _int_prompt("Choose dynamic mode", default=1)
+    if choice == 0:
+        return 0, None
+    if choice == 1:
+        per_static = 1
+    elif choice == 2:
+        per_static = 2
+    else:
+        per_static = max(0, _int_prompt("Dynamic tests per static test", default=1))
+    cap = None
+    if _confirm("Set maximum dynamic test cap?", default=False):
+        cap = max(0, _int_prompt("Maximum dynamic tests", default=50))
+    return per_static, cap
+
+
+def _build_scan_command(target: TargetDefinition, suite: Dict[str, str], dynamic_per_static: int, max_dynamic: Optional[int], headless: bool, open_report: bool) -> List[str]:
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    out_name = f"{target.id}_{suite['id']}_{'static' if dynamic_per_static == 0 else f'dyn{dynamic_per_static}'}_{timestamp}.html"
+    output = str(Path("reports") / out_name)
+
+    if dynamic_per_static > 0:
+        cmd = ["trustinspect", "adaptive-scan"]
+        if suite["mode"] == "suite":
+            cmd += ["--suite", suite["value"]]
+        else:
+            cmd += ["--base-test-cases", suite["value"]]
+        cmd += ["--dynamic-tests-per-static", str(dynamic_per_static)]
+        if max_dynamic is not None:
+            cmd += ["--max-dynamic-tests", str(max_dynamic)]
+    else:
+        cmd = ["trustinspect", "scan-web"]
+        if suite["mode"] == "suite":
+            cmd += ["--suite", suite["value"]]
+        else:
+            cmd += ["--test-cases", suite["value"]]
+
+    cmd += [
+        "--target-url", target.url,
+        "--input-selector", target.input_selector or "",
+        "--output-selector", target.output_selector or "",
+        "--output", output,
+        "--response-chars", "900",
+    ]
+    if normalize_optional_selector(target.send_selector):
+        cmd += ["--send-selector", str(target.send_selector)]
+    if normalize_optional_selector(target.frame_selector):
+        cmd += ["--frame-selector", str(target.frame_selector)]
+    if headless:
+        cmd.append("--headless")
+    if open_report:
+        cmd.append("--open")
+    return cmd
+
+
+def _command_panel(console, cmd: List[str]) -> None:
+    command = shlex.join(cmd)
+    if console and Panel:
+        console.print(Panel(command, title="Command to be executed", border_style="green"))
+    else:
+        print("Command to be executed:")
+        print(command)
+
+
+def _run_known_target_assessment() -> None:
+    console = _console()
+    target = _choose_target()
+    if not target:
+        return
+    suite = _choose_suite()
+    dynamic_per_static, max_dynamic = _choose_dynamic()
+    headless = _confirm("Run headless?", default=True)
+    open_report = _confirm("Open HTML report at the end?", default=True)
+
+    cmd = _build_scan_command(target, suite, dynamic_per_static, max_dynamic, headless, open_report)
+    _command_panel(console, cmd)
+    if _confirm("Run now?", default=True):
+        subprocess.run(cmd)
+
+
+def _profile_only() -> None:
+    target = _choose_target()
+    if not target:
+        return
+    output = str(Path("profiles") / f"{target.id}.yaml")
+    cmd = [
+        "trustinspect", "profile-target",
+        "--target-url", target.url,
+        "--input-selector", target.input_selector or "",
+        "--output-selector", target.output_selector or "",
+        "--output", output,
+    ]
+    if normalize_optional_selector(target.frame_selector):
+        cmd += ["--frame-selector", str(target.frame_selector)]
+    if normalize_optional_selector(target.send_selector):
+        cmd += ["--send-selector", str(target.send_selector)]
+    if _confirm("Run headless?", default=True):
+        cmd.append("--headless")
+    _command_panel(_console(), cmd)
+    if _confirm("Run now?", default=True):
+        subprocess.run(cmd)
+
+
+def _validate_assets() -> None:
+    commands = [
+        [sys.executable, "-m", "trustinspect.dynamic.validate_templates", "examples/dynamic_templates"],
+        [sys.executable, "-m", "trustinspect.testcases.validator", "examples/test_cases/trustinspect_baseline.yaml"],
+    ]
+    for cmd in commands:
+        _command_panel(_console(), cmd)
+        subprocess.run(cmd)
+
+
+def run_interactive_launcher() -> None:
+    console = _console()
+    if render_banner and console:
+        render_banner(console, license_name="Apache-2.0", version="v0.3-alpha")
+    else:
+        _print(console, "TRUSTINSPECT - Evidence-Based Trustworthy AI Testing")
+
+    while True:
+        if console and Panel:
+            console.print(
+                Panel(
+                    "[1] Run assessment on a known target\n"
+                    "[2] Add / calibrate a new target\n"
+                    "[3] Profile a target only\n"
+                    "[4] Validate test suites and dynamic templates\n"
+                    "[5] Exit",
+                    title="TrustInspect Launcher",
+                    border_style="green",
+                )
+            )
+        else:
+            print("1) Run known target\n2) Add/calibrate new target\n3) Profile only\n4) Validate\n5) Exit")
+
+        choice = _int_prompt("Choose action", default=1)
+        if choice == 1:
+            _run_known_target_assessment()
+        elif choice == 2:
+            _new_target_wizard()
+        elif choice == 3:
+            _profile_only()
+        elif choice == 4:
+            _validate_assets()
+        elif choice == 5:
+            _print(console, "Bye.", "dim")
+            return
+        else:
+            _print(console, "Invalid choice.", "red")

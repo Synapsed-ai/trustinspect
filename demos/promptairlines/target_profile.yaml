@@ -1,0 +1,9 @@
+id: promptairlines
+name: PromptAirlines by Wiz
+type: public-ai-challenge
+url: https://promptairlines.com/
+demo_role: Public AI-specific challenge for chatbot instruction-following behavior.
+recommended_mode: web-ui
+notes:
+  - Use only safe, non-destructive, educational payloads.
+  - Capture prompt, response, timestamp and screenshot as evidence.

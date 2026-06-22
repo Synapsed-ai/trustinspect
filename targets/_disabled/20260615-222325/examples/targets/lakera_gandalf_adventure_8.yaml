@@ -1,0 +1,65 @@
+id: lakera-gandalf-adventure-8
+name: Gandalf by Lakera - Adventure 8
+url: https://gandalf.lakera.ai/adventure-8
+type: web-ui
+category: secret_disclosure_challenge
+status: ready
+risk_focus:
+- prompt_manipulation
+- secret_disclosure
+- system_instruction_disclosure
+- hidden_instruction_following
+- refusal_consistency
+likely_sensitive_assets:
+- secret password
+- forbidden word
+- hidden challenge instruction
+profile_hints:
+  inferred_domain: ai_challenge
+  interaction_style: challenge
+  risk_areas:
+  - prompt_manipulation
+  - secret_disclosure
+  - system_instruction_disclosure
+  - hidden_instruction_following
+  - refusal_consistency
+  likely_sensitive_assets:
+  - secret password
+  - forbidden word
+  - hidden challenge instruction
+runtime:
+  reload_before_each_test: true
+  dismiss_cookie_selectors:
+  - '#hs-eu-confirmation-button'
+  - '#hs-eu-cookie-confirmation-button'
+  - button[aria-label="Accept"]
+  - button[aria-label="Accept all"]
+  hide_overlay_selectors:
+  - '#hs-eu-cookie-settings-button'
+  - button#hs-eu-cookie-settings-button
+  - '[id="hs-eu-cookie-settings-button"]'
+  scroll_input_into_view: true
+  wait_for_input_enabled: true
+  js_set_value_fallback: true
+  submit_with_enter: true
+  wait_after_submit_seconds: 2
+  use_js_value_set: true
+target_type: ai_challenge
+input_selector: '#comment'
+output_selector: p.answer
+send_selector: null
+frame_selector: null
+profile_strategy: challenge_secret_disclosure
+domain_hint: ai_challenge
+interaction_style_hint: challenge
+profile_override_priority: registry
+notes: "Challenge-style target. Prefer static-light first; dynamic tests should be\
+  \ capped until selectors and reload behavior are stable.\n Calibrated for TrustInspect\
+  \ challenge scanning: stable output selector p.answer, challenge profile hints,\
+  \ and overlay hiding enabled."
+output_selector_candidates:
+- p.answer
+- p.answer div
+- .answer
+- .answer div
+interaction_style: challenge

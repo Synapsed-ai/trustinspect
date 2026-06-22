@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: file:; script-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>TrustInspect Assessment Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1120px; margin: 32px auto; line-height: 1.5; color: #222; }
+    h1, h2, h3 { color: #111; }
+    .summary { background: #f4f6f8; border-radius: 10px; padding: 18px; margin: 20px 0; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+    .vuln { background: #f8d7da; }
+    .possible { background: #fff3cd; }
+    .safe { background: #d4edda; }
+    .error { background: #e5e7eb; }
+    .adaptive { background: #dbeafe; }
+    .baseline { background: #ede9fe; }
+    .muted { color: #666; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    th, td { border: 1px solid #ddd; padding: 9px; vertical-align: top; }
+    th { background: #111827; color: white; }
+    pre { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; padding: 10px; border-radius: 6px; max-height: 360px; overflow: auto; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; font-weight: bold; }
+    ul.compact { margin-top: 6px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>TrustInspect Assessment Report</h1>
+  <p><strong>Assessment:</strong> {{ assessment.name|e }}</p>
+  <p><strong>Target:</strong> {{ assessment.target.name|e }}{% if assessment.target.url %} — {{ assessment.target.url|e }}{% endif %}</p>
+  <p><strong>Started:</strong> {{ assessment.started_at|format_datetime|e }}</p>
+  <p><strong>Completed:</strong> {{ assessment.completed_at|format_datetime|e }}</p>
+  <p><strong>Duration:</strong> {{ summary.duration_readable|e }}</p>
+
+  <div class="summary">
+    <h2>Executive Summary</h2>
+    <table>
+      <tr>
+        <th>Total</th><th>Effective Tests</th><th>Static</th><th>Dynamic</th><th>Vulnerabilities</th><th>Possible</th><th>Safe</th><th>Errors</th>
+      </tr>
+      <tr>
+        <td>{{ summary.total|e }}</td>
+        <td>{{ summary.effective_tests|e }}</td>
+        <td>{{ summary.static_tests|e }}</td>
+        <td>{{ summary.dynamic_tests|e }}</td>
+        <td>{{ summary.vulnerabilities|e }}</td>
+        <td>{{ summary.possible|e }}</td>
+        <td>{{ summary.safe|e }}</td>
+        <td>{{ summary.errors|e }}</td>
+      </tr>
+    </table>
+    <p><strong>Assessment Mode:</strong> {{ summary.assessment_mode|e }}</p>
+    <p><strong>Generation Strategy:</strong> {{ summary.generation_strategy|e }}</p>
+    {% if summary.requested_max_dynamic_tests %}
+      <p><strong>Dynamic Test Limit:</strong> {{ summary.requested_max_dynamic_tests|e }} dynamic/adaptive test(s). Static tests loaded from the baseline catalog are always executed.</p>
+    {% endif %}
+    {% if summary.dynamic_tests_generated_count is not none %}
+      <p><strong>Dynamic Tests:</strong> generated {{ summary.dynamic_tests_generated_count|e }}, executed {{ summary.dynamic_tests_executed_count|e }}.</p>
+    {% endif %}
+    {% if summary.target_profile_path %}<p><strong>Target Profile:</strong> {{ summary.target_profile_path|e }}</p>{% endif %}
+    {% if summary.generated_tests_path %}<p><strong>Generated Tests:</strong> {{ summary.generated_tests_path|e }}</p>{% endif %}
+    {% if summary.errors == summary.total and summary.total > 0 %}
+    <p><strong>Scanner Status:</strong> All probes ended in ERROR. This report does not evaluate model behavior and indicates a setup, target, selector, or execution issue.</p>
+    {% elif summary.errors > 0 %}
+    <p><strong>Scanner Status:</strong> {{ summary.errors|e }} test(s) could not be evaluated because of Web UI execution, selector, timeout, or capture issues. Review the error evidence before drawing conclusions for those tests.</p>
+    {% endif %}
+  </div>
+
+  {% if summary.target_profile %}
+  <div class="summary">
+    <h2>Target Capability Profile</h2>
+    <div class="grid">
+      <div class="card">
+        <p><strong>Declared Identity</strong></p>
+        <p>{{ summary.target_profile.declared_identity|default('N/A')|e }}</p>
+        <p><strong>Inferred Domain:</strong> {{ summary.target_profile.inferred_domain|default('N/A')|e }}</p>
+        <p><strong>Interaction Style:</strong> {{ summary.target_profile.interaction_style|default('N/A')|e }}</p>
+      </div>
+      <div class="card">
+        <p><strong>Declared Capabilities</strong></p>
+        <ul class="compact">
+          {% for item in summary.target_profile.declared_capabilities or [] %}<li>{{ item|e }}</li>{% else %}<li>N/A</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="card">
+        <p><strong>Declared Boundaries</strong></p>
+        <ul class="compact">
+          {% for item in summary.target_profile.declared_boundaries or [] %}<li>{{ item|e }}</li>{% else %}<li>N/A</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="card">
+        <p><strong>Selected Risk Areas</strong></p>
+        <ul class="compact">
+          {% for item in summary.target_profile.selected_risk_areas or [] %}<li>{{ item|e }}</li>{% else %}<li>N/A</li>{% endfor %}
+        </ul>
+        <p><strong>Likely Sensitive Assets</strong></p>
+        <ul class="compact">
+          {% for item in summary.target_profile.likely_sensitive_assets or [] %}<li>{{ item|e }}</li>{% else %}<li>N/A</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+    <details>
+      <summary>Show profiling prompt and response</summary>
+      <p><strong>Profiling prompt:</strong></p>
+      <pre>{{ summary.target_profile.profiling_prompt|default('')|e }}</pre>
+      <p><strong>Profiling response:</strong></p>
+      <pre>{{ summary.target_profile.profiling_response|default('')|e }}</pre>
+    </details>
+  </div>
+  {% endif %}
+
+  {% if summary.generated_test_plan %}
+  <div class="summary">
+    <h2>Generated Test Plan</h2>
+    <p class="muted">These contextual tests were generated deterministically from the target capability profile. No LLM was used for generation.</p>
+    <table>
+      <tr><th>Test</th><th>Parent Static Test</th><th>Category</th><th>Risk Area</th><th>Selection Reason</th></tr>
+      {% for item in summary.generated_test_plan %}
+      <tr>
+        <td>{{ item.id|e }} — {{ item.name|e }}</td>
+        <td>{{ item.category|e }}</td>
+        <td>{{ item.risk_area|e }}</td>
+        <td>{{ item.reason|e }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  <h2>Findings</h2>
+  {% if assessment.findings %}
+    {% for finding in assessment.findings %}
+      <div class="summary">
+        <h3>{{ finding.id|e }} — {{ finding.title|e }}</h3>
+        <p><strong>Severity:</strong> {{ finding.severity.value|e }} | <strong>Confidence:</strong> {{ "%.2f"|format(finding.confidence) }} | <strong>Dimension:</strong> {{ finding.trustworthiness_dimension|e }}</p>
+        {% if finding.metadata.source_test_id is defined %}<p><strong>Source Test:</strong> {{ finding.metadata.source_test_id|e }}</p>{% endif %}
+        <p><strong>Description:</strong> {{ finding.description|e }}</p>
+        <p><strong>Impact:</strong> {{ finding.impact|e }}</p>
+        <p><strong>Remediation:</strong> {{ finding.remediation|e }}</p>
+        <h4>Evidence</h4>
+        {% for ev in finding.evidence %}
+          <p><strong>{{ ev.evidence_type.value|e }}:</strong></p>
+          <pre>{{ ev.value|e }}</pre>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No findings generated.</p>
+  {% endif %}
+
+  <h2>Observations</h2>
+  <table>
+    <tr>
+      <th>Test</th><th>Source</th><th>Category</th><th>Classification</th><th>Confidence</th><th>Rationale / Evidence</th>
+    </tr>
+    {% for obs in assessment.observations %}
+    {% set origin = obs.test_case.metadata.test_origin or ("adaptive" if obs.test_case.id.startswith("TI-CTX") else ("baseline" if obs.test_case.id.startswith("TI-BASE") else "static")) %}
+    <tr>
+      <td>{{ obs.test_case.id|e }} — {{ obs.test_case.name|e }}</td>
+      <td>
+        {% if origin == "adaptive" %}<span class="badge adaptive">ADAPTIVE</span>
+        {% elif origin == "baseline" %}<span class="badge baseline">STATIC</span>
+        {% else %}<span class="badge">{{ origin|upper|e }}</span>{% endif %}
+      </td>
+      <td>{{ obs.test_case.category|e }}</td>
+      <td>
+        {% if obs.classification.value == "VULNERABILITY" %}
+          <span class="badge vuln">{{ obs.classification.value|e }}</span>
+        {% elif obs.classification.value == "SAFE" %}
+          <span class="badge safe">{{ obs.classification.value|e }}</span>
+        {% elif obs.classification.value == "ERROR" %}
+          <span class="badge error">{{ obs.classification.value|e }}</span>
+        {% else %}
+          <span class="badge possible">{{ obs.classification.value|e }}</span>
+        {% endif %}
+      </td>
+      <td>{{ "%.2f"|format(obs.confidence) }}</td>
+      <td>
+        {{ obs.rationale|e }}
+        {% if obs.metadata.duration_seconds is defined %}
+          <div class="muted">Execution time: {{ obs.metadata.duration_seconds|e }}s</div>
+        {% endif %}
+
+        <details>
+          <summary>Show prompt and response</summary>
+          {% for ev in obs.evidence %}
+            {% if ev.evidence_type.value in ["prompt", "response"] %}
+              <p><strong>{{ ev.evidence_type.value|e }}:</strong></p>
+              <pre>{{ ev.value|e }}</pre>
+            {% endif %}
+          {% endfor %}
+        </details>
+
+        <details>
+          <summary>Show all evidence</summary>
+          {% for ev in obs.evidence %}
+            <p><strong>{{ ev.evidence_type.value|e }}:</strong></p>
+            <pre>{{ ev.value|e }}</pre>
+          {% endfor %}
+        </details>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

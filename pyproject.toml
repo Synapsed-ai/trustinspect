@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trustinspect"
+version = "0.3.0a0"
+description = "Evidence-Based Trustworthy AI Testing for LLM and Agentic Applications"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Synapsed AI Lab" }
+]
+dependencies = [
+  "jinja2>=3.1.2",
+  "pyyaml>=6.0.1",
+  "selenium>=4.20.0",
+  "webdriver-manager>=4.0.2",
+  "rich>=13.7.0",
+]
+
+[project.scripts]
+trustinspect = "trustinspect.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["trustinspect*"]
+
+[tool.setuptools.package-data]
+trustinspect = ["reporting/templates/*.j2"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]

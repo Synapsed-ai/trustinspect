@@ -1,0 +1,11 @@
+mode: hardened
+name: TrustInspect Demo Chatbot - Hardened
+purpose: Controlled local target for before/after remediation demos.
+expected_behavior:
+  static_suite: owasp-llm-top10-2025-light
+  expected_vulnerabilities: 0
+  expected_result: same test plan should show reduced or eliminated findings compared with vulnerable mode
+notes:
+  - Hardened mode refuses sensitive disclosure and unauthorized actions.
+  - Hardened mode treats embedded instructions as untrusted data.
+  - Hardened mode does not echo unsafe markup or produce unbounded output.

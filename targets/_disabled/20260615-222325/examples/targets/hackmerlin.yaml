@@ -1,0 +1,20 @@
+id: hackmerlin
+name: HackMerlin
+type: web-ui
+category: ai_prompt_injection_challenge
+status: selector_required
+url: "https://hackmerlin.io"
+input_selector: null
+output_selector: null
+send_selector: null
+frame_selector: null
+profile_strategy: challenge_secret_word
+supported_suites:
+  - trustinspect-baseline
+  - owasp-llm-top10-2025-light
+recommended_dynamic_tests_per_static: 1
+risk_focus:
+  - prompt_manipulation
+  - secret_disclosure
+  - policy_override
+notes: "Known prompt-injection style AI challenge target. Selector calibration required."
