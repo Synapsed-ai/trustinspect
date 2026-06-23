@@ -537,3 +537,130 @@ except NameError:
     pass
 # --- end TrustInspect flexible TerminalUI.target_panel compatibility patch ---
 
+# --- TrustInspect realtime progress compatibility patch ---
+# This block is intentionally self-contained: it normalizes progress events coming
+# from different scanner versions and renders them in the CLI without breaking scans.
+def _ti_safe_trim(value, limit=900):
+    value = "" if value is None else str(value)
+    if len(value) <= limit:
+        return value
+    return value[:limit] + "\n... [truncated] ..."
+
+
+def _ti_event_value(event, *names, default=None):
+    if event is None:
+        return default
+    if isinstance(event, dict):
+        for name in names:
+            if name in event and event.get(name) is not None:
+                return event.get(name)
+        return default
+    for name in names:
+        if hasattr(event, name):
+            value = getattr(event, name)
+            if value is not None:
+                return value
+    return default
+
+
+def _ti_status_style(status):
+    status = (status or "").upper()
+    if status == "VULNERABILITY":
+        return "bold red"
+    if "POSSIBLE" in status:
+        return "bold yellow"
+    if status == "SAFE":
+        return "bold green"
+    if status == "ERROR":
+        return "bold orange1"
+    return "bold white"
+
+
+def _ti_render_live_event(self, event):
+    try:
+        from rich.panel import Panel
+        from rich.table import Table
+        from rich.rule import Rule
+        from rich.box import ROUNDED
+    except Exception:
+        return
+
+    console = getattr(self, "console", None)
+    if console is None:
+        return
+
+    event_type = str(_ti_event_value(event, "type", "event", default="")).lower()
+    idx = int(_ti_event_value(event, "index", "idx", default=0) or 0)
+    total = int(_ti_event_value(event, "total", default=0) or 0)
+    test_id = str(_ti_event_value(event, "test_id", "id", default=""))
+    test_name = str(_ti_event_value(event, "test_name", "name", default=""))
+    source = str(_ti_event_value(event, "source", default=""))
+    parent = str(_ti_event_value(event, "parent", "parent_static_test_id", default=""))
+    layer = str(_ti_event_value(event, "layer", "aitg_layer", default=""))
+    category = str(_ti_event_value(event, "category", default=""))
+    prompt = _ti_event_value(event, "prompt", "payload", default="")
+    response = _ti_event_value(event, "response", default="")
+    rationale = _ti_event_value(event, "rationale", "analysis", default="")
+    status = str(_ti_event_value(event, "classification", "status", default=""))
+    confidence = _ti_event_value(event, "confidence", default=None)
+
+    prompt_chars = int(getattr(self, "prompt_chars", 700) or 700)
+    response_chars = int(getattr(self, "response_chars", 900) or 900)
+
+    if event_type in {"test_start", "start_test", "before_test"}:
+        title = f"[{idx}/{total}] {test_id} — {test_name}" if total else f"{test_id} — {test_name}"
+        console.print(Rule(title, style="bold green"))
+
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="bold green", width=12)
+        table.add_column(style="white")
+        table.add_row("Source", source or "static")
+        if parent:
+            table.add_row("Parent", parent)
+        if layer:
+            table.add_row("Layer", layer)
+        if category:
+            table.add_row("Category", category)
+        if total:
+            table.add_row("Executed", str(max(idx - 1, 0)))
+            table.add_row("Remaining", str(max(total - idx + 1, 0)))
+        console.print(Panel(table, title="Test Metadata", border_style="green", box=ROUNDED))
+
+        if prompt:
+            console.print(Panel(_ti_safe_trim(prompt, prompt_chars), title="PROMPT", border_style="green", box=ROUNDED))
+        return
+
+    if event_type in {"test_result", "test_complete", "after_test", "result"}:
+        if response:
+            console.print(Panel(_ti_safe_trim(response, response_chars), title="RESPONSE", border_style="green", box=ROUNDED))
+
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="bold green", width=12)
+        table.add_column(style="white")
+        table.add_row("Status", f"[{_ti_status_style(status)}]{status or 'UNKNOWN'}[/{_ti_status_style(status)}]")
+        if confidence is not None:
+            try:
+                table.add_row("Confidence", f"{float(confidence):.2f}")
+            except Exception:
+                table.add_row("Confidence", str(confidence))
+        if total:
+            table.add_row("Executed", str(idx))
+            table.add_row("Remaining", str(max(total - idx, 0)))
+        if rationale:
+            table.add_row("Rationale", _ti_safe_trim(rationale, 350))
+        console.print(Panel(table, title="RESULT", border_style=_ti_status_style(status), box=ROUNDED))
+        return
+
+    if event_type in {"error", "test_error"}:
+        message = _ti_event_value(event, "error", "message", "rationale", default="Unknown error")
+        console.print(Panel(str(message), title="ERROR", border_style="red", box=ROUNDED))
+
+
+# Attach / override aliases expected by different CLI versions.
+try:
+    TerminalUI.handle_event = _ti_render_live_event
+    TerminalUI.render_progress_event = _ti_render_live_event
+except NameError:
+    pass
+# --- end TrustInspect realtime progress compatibility patch ---
+

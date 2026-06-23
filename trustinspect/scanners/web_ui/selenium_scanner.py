@@ -460,3 +460,108 @@ class WebUiScanner(ScannerAdapter):
                 self.driver.quit()
             finally:
                 self.driver = None
+
+# --- TrustInspect scanner realtime progress monkeypatch ---
+def _ti_obj_get(obj, *names, default=None):
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        for name in names:
+            if name in obj and obj.get(name) is not None:
+                return obj.get(name)
+        return default
+    for name in names:
+        if hasattr(obj, name):
+            value = getattr(obj, name)
+            if value is not None:
+                return value
+    return default
+
+
+def _ti_extract_evidence_value(observation, wanted):
+    wanted = wanted.lower()
+    for ev in getattr(observation, "evidence", []) or []:
+        et = str(getattr(ev, "evidence_type", "") or "").lower()
+        value = getattr(ev, "value", None)
+        if wanted in et and value is not None:
+            return value
+    return ""
+
+
+try:
+    _ti_original_run = WebUiScanner.run
+    _ti_original_run_single = WebUiScanner._run_single
+
+    def _ti_run_with_total(self, target, test_cases):
+        if not isinstance(test_cases, list):
+            test_cases = list(test_cases)
+        self._ti_current_total = len(test_cases)
+        return _ti_original_run(self, target, test_cases)
+
+    def _ti_run_single_with_progress(self, target, test_case, idx):
+        total = int(getattr(self, "_ti_current_total", 0) or 0)
+        cb = getattr(self, "progress_callback", None)
+        prompt = _ti_obj_get(test_case, "payload", "prompt", default="")
+        test_id = _ti_obj_get(test_case, "id", "test_id", default="")
+        test_name = _ti_obj_get(test_case, "name", default="")
+        metadata = _ti_obj_get(test_case, "metadata", default={}) or {}
+        if isinstance(test_case, dict):
+            metadata = test_case.get("metadata", {}) or {}
+        category = _ti_obj_get(test_case, "category", default=metadata.get("category", ""))
+        layer = metadata.get("aitg_layer") or metadata.get("layer") or _ti_obj_get(test_case, "aitg_layer", default="")
+        source = metadata.get("source") or _ti_obj_get(test_case, "source", default="static")
+        parent = metadata.get("parent_static_test_id") or _ti_obj_get(test_case, "parent_static_test_id", default="")
+
+        if cb:
+            try:
+                cb({
+                    "type": "test_start",
+                    "index": idx,
+                    "total": total,
+                    "test_id": test_id,
+                    "test_name": test_name,
+                    "source": source,
+                    "parent_static_test_id": parent,
+                    "aitg_layer": layer,
+                    "category": category,
+                    "prompt": prompt,
+                })
+            except Exception:
+                pass
+
+        observation = _ti_original_run_single(self, target, test_case, idx)
+
+        if cb:
+            try:
+                response = _ti_extract_evidence_value(observation, "response")
+                if not response:
+                    response = _ti_extract_evidence_value(observation, "error")
+                classification = getattr(getattr(observation, "classification", ""), "value", getattr(observation, "classification", ""))
+                cb({
+                    "type": "test_result",
+                    "index": idx,
+                    "total": total,
+                    "test_id": test_id,
+                    "test_name": test_name,
+                    "source": source,
+                    "parent_static_test_id": parent,
+                    "aitg_layer": layer,
+                    "category": category,
+                    "prompt": prompt,
+                    "response": response,
+                    "classification": str(classification),
+                    "confidence": getattr(observation, "confidence", 0.0),
+                    "rationale": getattr(observation, "rationale", ""),
+                })
+            except Exception:
+                pass
+        return observation
+
+    if not getattr(WebUiScanner, "_ti_realtime_monkeypatch", False):
+        WebUiScanner.run = _ti_run_with_total
+        WebUiScanner._run_single = _ti_run_single_with_progress
+        WebUiScanner._ti_realtime_monkeypatch = True
+except Exception:
+    pass
+# --- end TrustInspect scanner realtime progress monkeypatch ---
+
