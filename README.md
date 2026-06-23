@@ -66,7 +66,7 @@ Known limitations:
 
 TrustInspect is designed as an evidence-based Trustworthy AI testing workbench for LLM and agentic applications. Its focus is application behavior, evidence collection, target profiling, static and dynamic test execution, and reporting for AI assurance.
 
-![TrustInspect positioning matrix](assets/screenshots/00-comparison-matrix.jpeg)
+![TrustInspect positioning matrix](assets/screenshots/01-comparison-matrix.jpeg)
 <!-- TRUSTINSPECT_POSITIONING_END -->
 
 <!-- TRUSTINSPECT_SCREENSHOTS_START -->
