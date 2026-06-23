@@ -9,6 +9,18 @@ It is designed for AI application assurance, not traditional web application sec
 
 ---
 
+## Demo Videos
+
+The following videos demonstrate TrustInspect in action against PromptAirlines, a controlled vulnerable AI application used to showcase OWASP AI Testing Guide aligned testing workflows.
+
+| Video | Description |
+|---|---|
+| [Minimal AITG Scan](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect1.mov) | Runs a minimal OWASP AITG-aligned scan against PromptAirlines and shows one detected issue. |
+| [Full AITG Scan with Dynamic Testing](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect2.mov) | Runs a broader AITG scan with dynamic testing enabled, including two dynamic test executions and several detected vulnerabilities. |
+| [Additional TrustInspect Demo](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect3.mov) | Provides an additional demonstration of TrustInspect capabilities for evidence-based Trustworthy AI testing. |
+
+---
+
 ## What TrustInspect does
 
 TrustInspect helps testers and assurance teams:
