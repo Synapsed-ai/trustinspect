@@ -46,3 +46,15 @@ README_*_PATCH.md
 README_*_FIX.md
 patch_*.py
 *_patch/
+
+# Backup / migration artifacts
+*.bak
+*.bak-*
+*.bak_*
+*.before_*.bak
+*.orig
+*.rej
+README_*_PATCH.md
+README_*_FIX.md
+patch_*.py
+*_patch/
