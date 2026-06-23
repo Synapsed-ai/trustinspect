@@ -25,3 +25,11 @@ Include:
 TrustInspect treats target responses as untrusted content. Reports should remain non-executable and use restrictive rendering controls.
 
 If you find a report rendering issue such as script execution, HTML injection, or unsafe local file access, treat it as a security issue.
+
+## Evidence and report handling
+
+TrustInspect is an evidence-based testing tool. Assessment outputs may contain sensitive prompts, model responses, screenshots, DOM snapshots, target URLs, generated dynamic tests, and target capability profiles.
+
+Before sharing reports, sample outputs, screenshots, or evidence folders, reviewers should verify that they do not contain customer data, credentials, secrets, private prompts, internal system prompts, proprietary documents, or other sensitive material.
+
+For release artifacts, do not include local runtime outputs such as `reports/`, `profiles/`, `generated_tests/`, `_archive/`, `.venv/`, `.pytest_cache/`, or `trustinspect.egg-info/`. Build public release archives from Git-tracked files only, for example with `git archive`.

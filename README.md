@@ -258,3 +258,11 @@ Public AI challenge targets included in the registry are provided for research a
 - expanded AITG full scenarios;
 - richer JSON/SARIF-style outputs;
 - CI-friendly regression mode.
+
+## Evidence handling and privacy
+
+TrustInspect reports and evidence files may contain sensitive information collected during an assessment, including prompts, model responses, screenshots, DOM snapshots, target URLs, generated test cases, and target capability profiles.
+
+Review generated reports and evidence artifacts before sharing them outside the assessment team. TrustInspect does not upload reports or evidence by default; generated artifacts are stored locally in the output path selected by the tester.
+
+Use TrustInspect only against systems you own, operate, or are explicitly authorized to test. Public AI challenge targets may change over time and may require selector calibration.
