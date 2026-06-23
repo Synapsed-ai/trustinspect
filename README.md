@@ -61,6 +61,54 @@ Known limitations:
 
 ---
 
+<!-- TRUSTINSPECT_POSITIONING_START -->
+## Positioning
+
+TrustInspect is designed as an evidence-based Trustworthy AI testing workbench for LLM and agentic applications. Its focus is application behavior, evidence collection, target profiling, static and dynamic test execution, and reporting for AI assurance.
+
+![TrustInspect positioning matrix](assets/screenshots/00-comparison-matrix.jpeg)
+<!-- TRUSTINSPECT_POSITIONING_END -->
+
+<!-- TRUSTINSPECT_SCREENSHOTS_START -->
+## Screenshots
+
+### Interactive launcher
+
+TrustInspect can be started in interactive mode to guide the tester through target selection, suite selection, and static/dynamic execution choices.
+
+![TrustInspect interactive launcher](assets/screenshots/01-launcher.png)
+
+### Live CLI execution
+
+During execution, TrustInspect displays the current test, prompt, response, progress counters, and classification in a terminal-first interface suitable for demos and hands-on testing.
+
+![TrustInspect CLI live run](assets/screenshots/02-cli-live-run.png)
+
+### Target capability profiling
+
+In adaptive mode, TrustInspect first profiles the target, builds a Target Capability Profile, and uses it to generate contextual dynamic tests.
+
+![TrustInspect target capability profile](assets/screenshots/03-target-capability-profile.png)
+
+### Controlled vulnerable demo target
+
+TrustInspect includes a local vulnerable/hardened demo chatbot so findings can be reproduced without depending on unstable third-party targets.
+
+![TrustInspect demo chatbot vulnerable mode](assets/screenshots/04-demo-chatbot-vulnerable.png)
+
+### HTML assessment report
+
+TrustInspect generates a structured HTML report with assessment metadata, executive summary, target profile, generated test plan, observations, evidence, and prompt/response details.
+
+![TrustInspect HTML report overview](assets/screenshots/05-html-report-overview.png)
+
+### Evidence details
+
+Observations are sorted by criticality and include expandable prompt/response evidence for each test.
+
+![TrustInspect report observations](assets/screenshots/06-html-report-observations.png)
+<!-- TRUSTINSPECT_SCREENSHOTS_END -->
+
 ## Installation
 
 ```bash
@@ -210,4 +258,3 @@ Public AI challenge targets included in the registry are provided for research a
 - expanded AITG full scenarios;
 - richer JSON/SARIF-style outputs;
 - CI-friendly regression mode.
-
