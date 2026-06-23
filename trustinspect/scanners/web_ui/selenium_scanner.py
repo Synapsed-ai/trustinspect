@@ -170,7 +170,6 @@ class WebUiScanner(ScannerAdapter):
         options = Options()
         if self.headless:
             options.add_argument("--headless=new")
-        options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1440,1100")
 
@@ -450,7 +449,7 @@ class WebUiScanner(ScannerAdapter):
         assert self.driver is not None
         safe_target = "".join(c if c.isalnum() or c in "-_" else "_" for c in target.id)
         safe_case = "".join(c if c.isalnum() or c in "-_" else "_" for c in test_case.id)
-        path = self.evidence_dir / f"{safe_target}_{idx:03d}_{safe_case}_dom.html"
+        path = self.evidence_dir / f"{safe_target}_{idx:03d}_{safe_case}_dom.html.txt"
         path.write_text(self.driver.page_source, encoding="utf-8")
         return path
 
