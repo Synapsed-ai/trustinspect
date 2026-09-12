@@ -1,6 +1,6 @@
 # TrustInspect Demo Target Quality Patch
 
-This patch makes the local demo target deterministic for BlackHat-style demos.
+This patch makes the local demo target deterministic demos.
 
 Expected vulnerable-mode behavior:
 
