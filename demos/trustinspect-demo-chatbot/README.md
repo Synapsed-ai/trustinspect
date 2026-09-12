@@ -10,7 +10,7 @@ It is **not a real LLM**. It is a deterministic LLM-like web chatbot that return
 
 ## Why it exists
 
-Public targets such as PromptAirlines, Gandalf, GPA, HackMerlin, and institutional chatbots are useful, but they are not fully controlled. Their selectors, rate limits, and behavior may change. This local target gives us a stable demo baseline for BlackHat Arsenal and development.
+Public targets such as PromptAirlines, Gandalf, GPA, HackMerlin, and institutional chatbots are useful, but they are not fully controlled. Their selectors, rate limits, and behavior may change. 
 
 ## Modes
 
