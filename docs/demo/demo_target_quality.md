@@ -1,7 +1,6 @@
 # TrustInspect Demo Target Quality Patch
 
-This patch hardens the controlled local demo target so it is suitable for a
-repeatable BlackHat Arsenal-style demo.
+This patch hardens the controlled local demo target.
 
 ## Expected vulnerable-mode behavior
 
