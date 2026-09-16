@@ -23,10 +23,18 @@
 - ISO/IEC 42001 assurance mappings.
 - EU AI Act risk/evidence mapping.
 
-## Milestone 4 — BlackHat Arsenal demo
+## Milestone 4 — Reproducible local demonstrations and adapters
 
 - PromptAirlines public AI challenge.
 - TrustInspect Demo Chatbot.
 - TrustInspect Demo RAG.
 - Damn Vulnerable LLM Agent adapter.
 - AgentDojo adapter.
+
+## Release validation gates
+
+- Complete installation and regression testing from a clean checkout.
+- Install and exercise the built wheel outside the repository.
+- Validate end-to-end capture against local vulnerable and hardened targets.
+- Review current dependency advisories, asset provenance, and repository history.
+- Document evidence limitations; a heuristic SAFE result is not a system-wide assurance claim.

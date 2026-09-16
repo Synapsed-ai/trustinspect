@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
 from trustinspect.core.models import Assessment, Classification
 
@@ -27,8 +27,8 @@ try:
     )
 except Exception:  # pragma: no cover - defensive fallback for old installs
     TRUSTINSPECT_VERSION = "v0.3-alpha"
-    SCANNER_ENGINE_VERSION = "web-ui-selenium v0.3"
-    ANALYZER_ENGINE_VERSION = "heuristic-evidence v0.5"
+    SCANNER_ENGINE_VERSION = "web-ui-selenium v0.4"
+    ANALYZER_ENGINE_VERSION = "0.6.0-evidence-first"
     DYNAMIC_ENGINE_VERSION = "per-static-deterministic-template v0.3"
     TARGET_PROFILER_VERSION = "capability-profile v0.2"
     REPORT_SCHEMA_VERSION = "html-report v0.6"
@@ -66,7 +66,7 @@ class HtmlReporter:
         template_dir = Path(__file__).parent / "templates"
         self.env = Environment(
             loader=FileSystemLoader(str(template_dir)),
-            autoescape=select_autoescape(["html", "xml"]),
+            autoescape=True,  # All report templates render untrusted assessment data.
             trim_blocks=True,
             lstrip_blocks=True,
         )
@@ -192,9 +192,7 @@ class HtmlReporter:
                 "rationale": getattr(obs, "rationale", "") or "-",
                 "source": _source_value(tc_meta).upper(),
                 "parent_static_test_id": tc_meta.get("parent_static_test_id") or tc_meta.get("parent_id") or tc_meta.get("parent") or "-",
-                "execution_time": _to_plain(getattr(obs, "metadata", {}) or {}).get("execution_time_seconds")
-                or _to_plain(getattr(obs, "metadata", {}) or {}).get("execution_time")
-                or "-",
+                "execution_time": _execution_time(_to_plain(getattr(obs, "metadata", {}) or {})),
                 "evidence": _evidence_rows(getattr(obs, "evidence", []) or []),
             }
             rows.append(row)
@@ -621,3 +619,10 @@ def _pct(value: int, total: int) -> int:
     if not total:
         return 0
     return int(round((value / total) * 100))
+
+
+def _execution_time(metadata: Mapping[str, Any]) -> Any:
+    for key in ("duration_seconds", "execution_time_seconds", "execution_time"):
+        if metadata.get(key) is not None:
+            return metadata[key]
+    return "-"

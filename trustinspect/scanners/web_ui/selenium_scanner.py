@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, Optional
 import time
 
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
@@ -24,7 +24,8 @@ from trustinspect.core.models import (
     TestCase,
 )
 from trustinspect.scanners.base import ScannerAdapter
-from trustinspect.scanners.web_ui.output_capture_guard import is_prompt_echo, format_prompt_echo_error
+from trustinspect.core.output_capture_guard import is_prompt_echo, format_prompt_echo_error
+from trustinspect.scanners.web_ui.response_capture import OutputNode, ResponseTracker
 from trustinspect.scanners.web_ui.robust_actions import dismiss_blocking_overlays, optional_selector, prepare_input_element, set_input_text
 
 
@@ -65,7 +66,13 @@ class WebUiScanner(ScannerAdapter):
         evidence_dir: str | Path = "reports/evidence",
         analyzer: Optional[HeuristicTrustAnalyzer] = None,
         progress_callback: Optional[ProgressCallback] = None,
+        response_stable_time: float = 1.0,
+        busy_selector: Optional[str] = None,
     ) -> None:
+        if wait_time <= 0 or not 0 < response_stable_time < wait_time:
+            raise ValueError("wait_time must be positive and greater than response_stable_time")
+        self.response_stable_time = response_stable_time
+        self.busy_selector = _ti_normalize_selector(busy_selector)
         self.input_selector = input_selector
         self.output_selector = output_selector
         self.send_selector = _ti_normalize_selector(send_selector)
@@ -81,10 +88,10 @@ class WebUiScanner(ScannerAdapter):
     def run(self, target: Target, test_cases: Iterable[TestCase]) -> list[Observation]:
         cases = list(test_cases)
         self._emit({"event": "run_started", "total": len(cases), "target": target.name, "url": target.url})
-        self._open_browser(target)
         observations: list[Observation] = []
         self._target_runtime = getattr(target, 'metadata', {}) if isinstance(getattr(target, 'metadata', {}), dict) else {}
         try:
+            self._open_browser(target)
             for idx, test_case in enumerate(cases, 1):
                 self._emit(
                     {
@@ -179,11 +186,14 @@ class WebUiScanner(ScannerAdapter):
         self.driver.get(target.url)
         dismiss_blocking_overlays(self.driver, target)
 
+        self._enter_frame()
+
+    def _enter_frame(self) -> None:
         if self.frame_selector:
-            WebDriverWait(self.driver, self.wait_time).until(
-                lambda d: d.find_elements(By.CSS_SELECTOR, self.frame_selector)
+            self.driver.switch_to.default_content()
+            frame = WebDriverWait(self.driver, self.wait_time).until(
+                lambda d: d.find_element(By.CSS_SELECTOR, self.frame_selector)
             )
-            frame = self.driver.find_element(By.CSS_SELECTOR, self.frame_selector)
             self.driver.switch_to.frame(frame)
 
     def _run_single(self, target: Target, test_case: TestCase, idx: int) -> Observation:
@@ -196,11 +206,9 @@ class WebUiScanner(ScannerAdapter):
             if runtime.get('runtime', {}).get('reload_before_each_test') or runtime.get('reload_before_each_test'):
                 self.driver.get(target.url)
                 dismiss_blocking_overlays(self.driver, target)
+                self._enter_frame()
                 time.sleep(0.3)
 
-            previous_texts = self._candidate_output_texts()
-            previous_count = len(previous_texts)
-            previous_text = previous_texts[-1] if previous_texts else ""
 
             input_el = WebDriverWait(self.driver, self.wait_time).until(
                 lambda d: d.find_element(By.CSS_SELECTOR, self.input_selector)
@@ -208,6 +216,12 @@ class WebUiScanner(ScannerAdapter):
             dismiss_blocking_overlays(self.driver, target)
             prepare_input_element(self.driver, input_el, wait_time=self.wait_time, target=target)
             set_input_text(self.driver, input_el, test_case.payload)
+
+            self._active_prompt_text = test_case.payload
+            self._previous_output_snapshot = self._snapshot_output_nodes()
+            self._previous_output_texts = [n.text for n in self._previous_output_snapshot]
+            previous_count = len(self._previous_output_snapshot)
+            previous_text = self._previous_output_texts[-1] if previous_count else ""
 
             if self.send_selector:
                 send_el = self.driver.find_element(By.CSS_SELECTOR, self.send_selector)
@@ -283,56 +297,52 @@ class WebUiScanner(ScannerAdapter):
                 return False
         return False
 
-    def _wait_for_response(self, *args) -> str:
-        """
-        Wait for a new assistant response while rejecting user-message echoes.
+    def _snapshot_output_nodes(self) -> list[OutputNode]:
+        """Capture identities and text, including empty output placeholders."""
+        assert self.driver is not None
+        nodes = []
+        # Stale references invalidate the entire sample. Silently dropping one
+        # changes counts and can misattribute a historic node to the current turn.
+        for element in self.driver.find_elements(By.CSS_SELECTOR, self.output_selector):
+            nodes.append(OutputNode(str(element.id), element.text.strip()))
+        return nodes
 
-        Some WebChat/BotFramework-style targets expose user and assistant bubbles
-        through the same selector. In that case the last matched node can be the
-        submitted prompt itself, which would create false positives. This method
-        scans all matched output nodes from newest to oldest and returns the first
-        new, non-empty text that is not already present before submission and does
-        not look like the prompt just submitted.
+    def _wait_for_response(self, previous_count: int, previous_text: str) -> str:
+        """Wait for this turn's output, then for stability and optional busy state.
+
+        Silence alone cannot prove streaming completion. The default one-second
+        stability interval is a conservative heuristic; configure busy_selector
+        when the target exposes a reliable generation-in-progress indicator.
         """
         assert self.driver is not None
+        baseline = getattr(self, "_previous_output_snapshot", None)
+        if baseline is None:
+            raise RuntimeError("Missing pre-submission output snapshot; refusing ambiguous response capture")
+        if len(baseline) != previous_count:
+            raise RuntimeError("Pre-submission output count changed; refusing ambiguous response capture")
+        runtime = getattr(self, "_target_runtime", {}) or {}
+        runtime = runtime.get("runtime", runtime)
+        busy_selector = _ti_normalize_selector(runtime.get("busy_selector") or self.busy_selector)
+        stable_for = float(runtime.get("response_stable_time", self.response_stable_time))
+        if not 0 < stable_for < self.wait_time:
+            raise ValueError("response_stable_time must be positive and shorter than wait_time")
+        tracker = ResponseTracker(baseline, getattr(self, "_active_prompt_text", ""), stable_for)
 
-        previous_text = ""
-        if args:
-            previous_text = str(args[-1] or "")
-        previous_norm = self._normalize_capture_text(previous_text)
-        previous_seen = {
-            self._normalize_capture_text(t)
-            for t in getattr(self, "_previous_output_texts", [])
-            if self._normalize_capture_text(t)
-        }
-        if previous_norm:
-            previous_seen.add(previous_norm)
-
-        def changed(d):
-            elems = d.find_elements(By.CSS_SELECTOR, self.output_selector)
-            if not elems:
+        def completed(driver):
+            try:
+                nodes = self._snapshot_output_nodes()
+                busy = bool(busy_selector) and any(
+                    el.is_displayed() for el in driver.find_elements(By.CSS_SELECTOR, busy_selector)
+                )
+            except StaleElementReferenceException:
+                tracker.observe([], time.monotonic(), busy=True)
                 return False
-            texts = []
-            for elem in elems:
-                try:
-                    value = elem.text.strip()
-                except Exception:
-                    value = ""
-                if value:
-                    texts.append(value)
-            for text in reversed(texts):
-                norm = self._normalize_capture_text(text)
-                if not norm:
-                    continue
-                if norm in previous_seen:
-                    continue
-                if self._looks_like_prompt_echo(text):
-                    continue
-                return text
-            return False
+            return tracker.observe(nodes, time.monotonic(), busy=busy) or False
 
-        response = WebDriverWait(self.driver, self.wait_time).until(changed)
-        return str(response).strip()
+        return str(WebDriverWait(self.driver, self.wait_time, poll_frequency=0.1).until(
+            completed,
+            message="No attributable, stable assistant response was captured before the timeout",
+        )).strip()
 
     def _build_evidence(self, test_case: TestCase, response_text: str, screenshot_path: Optional[Path]) -> list[EvidenceItem]:
         evidence = [
@@ -563,4 +573,3 @@ try:
 except Exception:
     pass
 # --- end TrustInspect scanner realtime progress monkeypatch ---
-
