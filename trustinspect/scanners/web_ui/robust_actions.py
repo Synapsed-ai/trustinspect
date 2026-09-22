@@ -112,8 +112,51 @@ def prepare_input_element(driver, input_el, wait_time: int = 20, target: Any = N
     return input_el
 
 
+def _set_input_text_without_enter(driver, input_el, value: str) -> None:
+    """Set editable text without dispatching keyboard submission events.
+
+    Use the native value setter for controlled textarea/input components and
+    literal textContent for contenteditable fields. Payloads remain arguments,
+    never executable JavaScript. Browsers canonicalize textarea line endings.
+    """
+    expected = value.replace("\r\n", "\n").replace("\r", "\n")
+    actual = driver.execute_script(
+        """
+        const el = arguments[0];
+        const value = arguments[1];
+        if (el.disabled || el.readOnly) throw new Error('Input is not editable');
+        el.focus();
+        const view = el.ownerDocument.defaultView;
+        if ('value' in el) {
+            const prototype = el.tagName === 'TEXTAREA'
+                ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
+            const setter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
+            setter.call(el, value);
+            el.dispatchEvent(new view.Event('input', {bubbles: true}));
+            el.dispatchEvent(new view.Event('change', {bubbles: true}));
+            return el.value;
+        }
+        if (!el.isContentEditable) throw new Error('Element is not an editable input');
+        el.textContent = value;
+        el.dispatchEvent(new view.InputEvent('input', {
+            bubbles: true, inputType: 'insertText', data: value
+        }));
+        return el.textContent;
+        """,
+        input_el,
+        expected,
+    )
+    if actual != expected:
+        raise RuntimeError("Input text did not survive insertion intact; refusing to submit a partial prompt")
+
+
 def set_input_text(driver, input_el, value: str) -> None:
     value = value or ""
+    if "\n" in value or "\r" in value:
+        # send_keys(newlines) can trigger a chat's Enter-to-send handler before
+        # the scanner snapshots output or performs its one explicit submission.
+        _set_input_text_without_enter(driver, input_el, value)
+        return
     try:
         input_el.clear()
     except Exception:
@@ -123,22 +166,4 @@ def set_input_text(driver, input_el, value: str) -> None:
         return
     except Exception:
         pass
-
-    # JS fallback for textarea/input/contenteditable components.
-    driver.execute_script(
-        """
-        const el = arguments[0];
-        const value = arguments[1];
-        el.focus();
-        if ('value' in el) {
-            el.value = value;
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-            el.dispatchEvent(new Event('change', {bubbles: true}));
-        } else {
-            el.textContent = value;
-            el.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertText', data: value}));
-        }
-        """,
-        input_el,
-        value,
-    )
+    _set_input_text_without_enter(driver, input_el, value)
