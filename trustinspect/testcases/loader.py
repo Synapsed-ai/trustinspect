@@ -6,11 +6,26 @@ from typing import Iterable, List
 import yaml
 
 from trustinspect.core.models import TestCase
+from trustinspect.resources import resolve_input_file
+
+
+def load_test_case_rows(path: str | Path) -> list[dict]:
+    data = yaml.safe_load(resolve_input_file(path).read_text(encoding="utf-8"))
+    if data is None:
+        return []
+    if isinstance(data, list):
+        rows = data
+    elif isinstance(data, dict):
+        rows = data.get("test_cases", [])
+    else:
+        raise ValueError("Test catalog must contain a list or a test_cases mapping")
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise ValueError("test_cases must be a list of mappings")
+    return rows
 
 
 def load_test_cases_yaml(path: str | Path) -> List[TestCase]:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    rows = data.get("test_cases", data if isinstance(data, list) else [])
+    rows = load_test_case_rows(path)
     cases: List[TestCase] = []
     for idx, row in enumerate(rows, 1):
         cases.append(

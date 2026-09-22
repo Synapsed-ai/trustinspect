@@ -7,10 +7,11 @@ import yaml
 
 from .indicator_compiler import SafeFormatDict, compile_failure_indicators, compile_success_indicators
 from .risk_mapper import normalize_target_profile
+from trustinspect.resources import dynamic_template_directory
 
 
 def load_dynamic_templates(template_dir: str | Path) -> List[Dict[str, Any]]:
-    template_path = Path(template_dir)
+    template_path = dynamic_template_directory(template_dir)
     templates: List[Dict[str, Any]] = []
     for path in sorted(template_path.glob("*.yaml")):
         with path.open("r", encoding="utf-8") as f:
@@ -18,6 +19,8 @@ def load_dynamic_templates(template_dir: str | Path) -> List[Dict[str, Any]]:
         if data:
             data.setdefault("template_id", path.stem)
             templates.append(data)
+    if not templates:
+        raise ValueError(f"No dynamic templates found in {template_path}")
     return templates
 
 

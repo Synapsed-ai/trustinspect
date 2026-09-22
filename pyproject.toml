@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,10 +8,9 @@ version = "0.3.0a0"
 description = "Evidence-Based Trustworthy AI Testing for LLM and Agentic Applications"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
-authors = [
-  { name = "Synapsed AI Lab" }
-]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Synapsed AI Lab" }]
 dependencies = [
   "jinja2>=3.1.2",
   "pyyaml>=6.0.1",
@@ -27,9 +26,8 @@ trustinspect = "trustinspect.cli:main"
 include = ["trustinspect*"]
 
 [tool.setuptools.package-data]
-trustinspect = ["reporting/templates/*.j2"]
+trustinspect = ["reporting/templates/*.j2", "_resource_manifest.json"]
 
 [project.optional-dependencies]
-dev = [
-  "pytest>=8.0",
-]
+dev = ["pytest>=8.0", "setuptools>=77"]
+packaging = ["build>=1.2.2", "twine>=6.0"]

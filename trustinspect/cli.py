@@ -36,7 +36,8 @@ from trustinspect.targets.profile import load_target_profile, save_target_profil
 from trustinspect.targets.profiler import build_profile_from_response, profile_target_via_web_ui
 from trustinspect.testcases.generator import generate_contextual_tests
 from trustinspect.dynamic.per_static import generate_dynamic_tests_for_static_suite
-from trustinspect.testcases.loader import save_test_cases_yaml
+from trustinspect.testcases.loader import save_test_cases_yaml, load_test_case_rows
+from trustinspect.resources import builtin_file, builtin_directory
 from trustinspect.ui.terminal import TerminalUI
 from trustinspect.suites.registry import available_suites, resolve_suite_path
 
@@ -83,8 +84,7 @@ def _apply_suite_selection(args: argparse.Namespace, destination_attr: str) -> N
     print(f"[+] Using static test suite: {suite} -> {resolved}")
 
 def _load_test_cases(path: str | Path) -> list[TestCase]:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    rows = data.get("test_cases", data if isinstance(data, list) else [])
+    rows = load_test_case_rows(path)
     test_cases: list[TestCase] = []
     for idx, row in enumerate(rows, 1):
         test_cases.append(
@@ -568,6 +568,8 @@ def cmd_scan_web(args: argparse.Namespace) -> None:
     ui.banner(version=_trustinspect_version(), license_name=args.license_name)
 
     _apply_suite_selection(args, "test_cases")
+    if args.test_cases is None:
+        args.test_cases = str(builtin_file("examples/test_cases/owasp_light_full.yaml"))
     test_cases = _load_test_cases(args.test_cases)
     test_cases = _limit_test_cases(test_cases, getattr(args, "max_tests", None), label="scan-web test cases")
     if not test_cases:
@@ -864,7 +866,7 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
         target_profile=profile,
         dynamic_tests_per_static=dynamic_tests_per_static,
         max_dynamic_tests=max_dynamic_tests,
-        template_dir="examples/dynamic_templates",
+        template_dir=builtin_directory("examples/dynamic_templates"),
     )
     generated_tests = list(generated_tests_all)
     _mark_test_origin(generated_tests, "adaptive")
@@ -1021,7 +1023,7 @@ def main() -> None:
 
     web = sub.add_parser("scan-web", help="Execute TrustInspect test cases against a Web UI target")
     _add_web_selector_args(web)
-    web.add_argument("--test-cases", default="examples/test_cases/owasp_light_full.yaml")
+    web.add_argument("--test-cases", default=None, help="Custom catalog path; defaults to the bundled OWASP light catalog")
     web.add_argument("--suite", choices=available_suites(), default=None, help="Built-in static test suite to run, e.g. owasp-llm-top10-2025-light or owasp-llm-top10-2025-full")
     web.add_argument("--max-tests", type=int, default=None, help="Maximum number of static test cases to execute")
     web.add_argument("--output", default="reports/web_assessment.html")
