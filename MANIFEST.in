@@ -1,0 +1,20 @@
+include README.md LICENSE NOTICE pyproject.toml setup.py
+include trustinspect/_resource_manifest.json
+include examples/test_cases/trustinspect_baseline.yaml
+include examples/test_cases/owasp_light.yaml
+include examples/test_cases/owasp_light_full.yaml
+include examples/test_suites/owasp_llm_top10_2025_light.yaml
+include examples/test_suites/owasp_llm_top10_2025_full.yaml
+include suites/owasp/aitg-light.yaml
+include suites/owasp/aitg-full.yaml
+include examples/dynamic_templates/01_hidden_instruction.yaml
+include examples/dynamic_templates/02_sensitive_data.yaml
+include examples/dynamic_templates/03_system_instruction.yaml
+include examples/dynamic_templates/04_unauthorized_action.yaml
+include examples/dynamic_templates/05_domain_boundary.yaml
+include examples/dynamic_templates/06_unsafe_output_echo.yaml
+include examples/dynamic_templates/07_resource_exhaustion.yaml
+include examples/dynamic_templates/08_roleplay_policy_override.yaml
+include targets/builtin/lakera_gandalf_baseline.yaml
+include targets/builtin/promptairlines.yaml
+include targets/builtin/trustinspect_demo_chatbot.yaml

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
+
+from trustinspect.resources import builtin_directory
 
 
 _NULL_SELECTOR_VALUES = {"", "null", "none", "nil", "n/a", "na", "-", "--"}
@@ -46,6 +49,7 @@ class TargetDefinition:
     notes: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
     source_path: Optional[str] = None
+    registry_local_dir: Optional[str] = field(default=None, repr=False)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], source_path: Optional[Path] = None) -> "TargetDefinition":
@@ -99,6 +103,10 @@ class TargetDefinition:
             return "unknown"
         p = Path(self.source_path)
         parts = set(p.parts)
+        if self.registry_local_dir and p.resolve().parent == Path(self.registry_local_dir).resolve():
+            return "local"
+        if p.parent.name == "builtin":
+            return "builtin"
         if "local" in parts:
             return "local"
         if "builtin" in parts or "examples" in parts:
@@ -148,55 +156,61 @@ def _load_yaml_file(path: Path) -> Optional[TargetDefinition]:
 
 
 def _resolve_builtin_dirs_for_public_release(builtins_dir, legacy_builtins_dir=None):
-    """Return candidate built-in target directories in stable public-release order."""
-    candidates = []
-    requested = Path(builtins_dir)
-    candidates.append(requested)
-
-    # Backward compatibility: older tests and callers still pass examples/targets.
-    if str(builtins_dir) == "examples/targets":
-        candidates.append(Path("targets/builtin"))
-
-    if legacy_builtins_dir is not None:
-        candidates.append(Path(legacy_builtins_dir))
-
-    # Always include the public-release built-in location as a final fallback.
-    candidates.append(Path("targets/builtin"))
-
-    seen = set()
-    result = []
-    for item in candidates:
-        key = str(item)
-        if key not in seen:
-            result.append(item)
-            seen.add(key)
-    return result
+    """Default names refer to trusted bundled targets, not similarly named cwd files."""
+    if builtins_dir is None or str(builtins_dir) in {"targets/builtin", "examples/targets"}:
+        candidates = [builtin_directory("targets/builtin")]
+    else:
+        requested = Path(builtins_dir).expanduser()
+        # Explicit registry roots are optional search locations: local-only
+        # workspaces need not create a built-in directory. Do not replace an
+        # explicitly configured root with bundled entries when it is absent.
+        if requested.exists() and not requested.is_dir():
+            raise NotADirectoryError(f"Built-in target path is not a directory: {requested}")
+        candidates = [requested]
+    if legacy_builtins_dir is not None and str(legacy_builtins_dir) != "examples/targets":
+        candidates.append(Path(legacy_builtins_dir).expanduser())
+    return list(dict.fromkeys(candidates))
 
 def load_target_registry(
     builtins_dir: str | Path = "targets/builtin",
     local_dir: str | Path = "targets/local",
-    legacy_builtins_dir: str | Path = "examples/targets",
+    legacy_builtins_dir: str | Path | None = None,
 ) -> TargetRegistry:
     registry = TargetRegistry()
 
     # Load built-ins first, then legacy examples, then local overrides.
-    for directory in [*_resolve_builtin_dirs_for_public_release(builtins_dir, legacy_builtins_dir), Path(local_dir)]:
+    for directory in [*_resolve_builtin_dirs_for_public_release(builtins_dir, legacy_builtins_dir), Path(local_dir).expanduser()]:
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.yaml")):
             target = _load_yaml_file(path)
             if target:
+                target.registry_local_dir = str(Path(local_dir).expanduser().resolve())
                 registry.add(target)
 
+    registry.targets = [t for t in registry.targets if t.status.lower() != "disabled"]
     return registry
 
 
+def _workspace_directory(value: str | Path) -> Path:
+    directory = Path(value).expanduser()
+    package = Path(__file__).resolve().parents[1]
+    if directory.resolve().is_relative_to(package):
+        raise ValueError("Target state must be stored outside the TrustInspect package")
+    return directory
+
+
 def save_local_target(target: TargetDefinition, local_dir: str | Path = "targets/local") -> Path:
-    directory = Path(local_dir)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", target.id):
+        raise ValueError("Target id must be a safe filename, not a path")
+    directory = _workspace_directory(local_dir)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{target.id}.yaml"
+    if path.is_symlink():
+        raise ValueError("Local target file must not be a symlink")
     clean = target.to_dict()
-    clean["status"] = "ready" if target.is_ready else "selector_required"
+    if clean.get("status", "").lower() != "disabled":
+        clean["status"] = "ready" if target.is_ready else "selector_required"
     path.write_text(yaml.safe_dump(clean, sort_keys=False, allow_unicode=True), encoding="utf-8")
     return path
 
@@ -237,15 +251,27 @@ def archive_target(target: TargetDefinition, disabled_dir: str | Path = "targets
     Returns the destination path when archived, or None if the target has no
     backing source file.
     """
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", target.id):
+        raise ValueError("Target id must be a safe filename, not a path")
     src = _find_target_source_file_for_archive(target)
     if src is None or not src.exists():
         return None
 
+    if src.is_symlink():
+        raise ValueError("Target source file must not be a symlink")
+
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     kind = target.source_kind or "unknown"
-    dest_dir = Path(disabled_dir) / stamp / kind
+    dest_dir = _workspace_directory(_workspace_directory(disabled_dir) / stamp / kind)
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / src.name
+    if dest.is_symlink() or dest.exists():
+        raise FileExistsError("Archive destination already exists; no files were changed")
 
-    shutil.move(str(src), str(dest))
+    if src.resolve().parent == builtin_directory("targets/builtin").resolve():
+        # Installed data is immutable. A workspace tombstone suppresses the target.
+        save_local_target(replace(target, status="disabled"), target.registry_local_dir or "targets/local")
+        shutil.copy2(src, dest)
+    else:
+        shutil.move(str(src), str(dest))
     return dest
