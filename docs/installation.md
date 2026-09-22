@@ -29,6 +29,10 @@ The default `build` command creates an sdist and builds the wheel **from that
 sdist**. The verifier creates a new virtual environment (without system site
 packages), installs the wheel and its declared dependencies, runs `pip check`,
 and executes commands in a temporary working directory unrelated to the checkout.
+Isolated Python subprocesses use explicit `-I -B -X utf8` flags: isolation
+ignores `PYTHON*` environment settings. Console entry points receive UTF-8
+environment settings for captured output. Legacy non-Unicode terminal behavior
+is not certified by this packaging check.
 Installation requires access to the public Python package index; no external AI
 endpoint or paid model API is called by the verifier.
 
@@ -77,6 +81,10 @@ creates a local `status: disabled` override and an archive copy; it never moves 
 rewrites package data in `site-packages`. Remove the local override to restore the
 built-in definition, or save a new local target with `status: ready` to re-enable
 it. Explicit registry directory arguments remain available to library callers.
+Missing explicit target search directories are skipped to preserve local-only
+registries; an existing file supplied as a registry directory is rejected.
+This does not change the errors for missing required bundled resources, custom
+catalog files or custom dynamic-template directories.
 
 ## What the distribution check proves
 

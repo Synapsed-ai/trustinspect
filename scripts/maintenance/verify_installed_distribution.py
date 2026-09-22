@@ -122,6 +122,13 @@ print("INSTALLED_PROBE=" + json.dumps({"installed_module": str(installed), "pyth
 '''
 
 
+
+def isolated_python_command(python: Path | str, *arguments: str) -> list[str]:
+    # -I ignores PYTHONUTF8/PYTHONIOENCODING/PYTHONDONTWRITEBYTECODE. Specify
+    # UTF-8 and no-bytecode explicitly for predictable captured output on
+    # Windows, while retaining isolation from the checkout and user packages.
+    return [str(python), "-I", "-B", "-X", "utf8", *arguments]
+
 def execute(command, cwd, env, timeout=300):
     result = subprocess.run(command, cwd=cwd, env=env, text=True, encoding="utf-8",
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
@@ -160,6 +167,10 @@ def inspect_wheel(wheel: Path, source_root: Path) -> dict:
 
 
 def main() -> None:
+    # The verifier itself prints captured UTF-8 child output, including on Windows.
+    for stream in (sys.stdout, sys.stderr):
+        if callable(getattr(stream, "reconfigure", None)):
+            stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wheel", type=Path)
     parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[2])
@@ -182,13 +193,13 @@ def main() -> None:
         cli = scripts / ("trustinspect.exe" if os.name == "nt" else "trustinspect")
         workspace = root / "unrelated workspace"
         workspace.mkdir()
-        execute([str(python), "-I", "-m", "pip", "install", "--no-compile", str(wheel)], workspace, env)
-        execute([str(python), "-I", "-m", "pip", "check"], workspace, env)
+        execute(isolated_python_command(python, "-m", "pip", "install", "--no-compile", str(wheel)), workspace, env)
+        execute(isolated_python_command(python, "-m", "pip", "check"), workspace, env)
         expected = root / "expected.json"
         expected.write_text(json.dumps(checked["hashes"]), encoding="utf-8")
         probe = root / "installed_probe.py"
         probe.write_text(PROBE, encoding="utf-8")
-        output = execute([str(python), "-I", str(probe), str(expected)], workspace, env)
+        output = execute(isolated_python_command(python, str(probe), str(expected)), workspace, env)
         marker = next(line for line in output.splitlines() if line.startswith("INSTALLED_PROBE="))
         summary = json.loads(marker.split("=", 1)[1])
         execute([str(cli), "--help"], workspace, env)
@@ -198,9 +209,9 @@ def main() -> None:
         execute([str(cli), "profile-target", "--target-url", "https://example.invalid", "--profile-response-file", "capabilities.txt", "--output", "declared-profile.yaml", "--quiet-ui", "--no-banner"], workspace, env)
         assert (workspace / "declared-profile.yaml").is_file()
         execute([str(cli), "generate-tests", "--target-profile", "profile.yaml", "--output", "generated.yaml", "--max-tests", "4"], workspace, env)
-        execute([str(python), "-I", "-m", "trustinspect.dynamic.engine", "--target-profile", "profile.yaml", "--output", "module-generated.yaml", "--max-tests", "4"], workspace, env)
-        execute([str(python), "-I", "-c", "import yaml; from pathlib import Path; assert yaml.safe_load(Path('generated.yaml').read_text())['test_cases']; assert yaml.safe_load(Path('module-generated.yaml').read_text())['test_cases']"], workspace, env)
-        summary.update(wheel=str(wheel.name), wheel_sha256=checked["wheel_sha256"], fresh_venv=True, console_commands=5, external_ai_requests=0)
+        execute(isolated_python_command(python, "-m", "trustinspect.dynamic.engine", "--target-profile", "profile.yaml", "--output", "module-generated.yaml", "--max-tests", "4"), workspace, env)
+        execute(isolated_python_command(python, "-c", "import yaml; from pathlib import Path; assert yaml.safe_load(Path('generated.yaml').read_text())['test_cases']; assert yaml.safe_load(Path('module-generated.yaml').read_text())['test_cases']"), workspace, env)
+        summary.update(wheel=str(wheel.name), wheel_sha256=checked["wheel_sha256"], fresh_venv=True, console_commands=5, external_ai_requests=0, isolated_python_utf8=True)
         if args.json_output:
             args.json_output.parent.mkdir(parents=True, exist_ok=True)
             args.json_output.write_text(json.dumps(summary, indent=2)+"\n", encoding="utf-8")

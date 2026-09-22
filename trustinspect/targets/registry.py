@@ -161,8 +161,11 @@ def _resolve_builtin_dirs_for_public_release(builtins_dir, legacy_builtins_dir=N
         candidates = [builtin_directory("targets/builtin")]
     else:
         requested = Path(builtins_dir).expanduser()
-        if not requested.is_dir():
-            raise FileNotFoundError(f"Built-in target directory does not exist: {requested}")
+        # Explicit registry roots are optional search locations: local-only
+        # workspaces need not create a built-in directory. Do not replace an
+        # explicitly configured root with bundled entries when it is absent.
+        if requested.exists() and not requested.is_dir():
+            raise NotADirectoryError(f"Built-in target path is not a directory: {requested}")
         candidates = [requested]
     if legacy_builtins_dir is not None and str(legacy_builtins_dir) != "examples/targets":
         candidates.append(Path(legacy_builtins_dir).expanduser())

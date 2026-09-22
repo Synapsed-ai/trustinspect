@@ -64,3 +64,32 @@ def test_editable_build_does_not_write_bundled_data(build_module, tmp_path, monk
     command.editable_mode = True
     command.run()
     assert not Path(command.build_lib).exists()
+
+
+@pytest.fixture
+def distribution_verifier():
+    source = Path(__file__).resolve().parents[1] / "scripts/maintenance/verify_installed_distribution.py"
+    spec = importlib.util.spec_from_file_location("ti_distribution_verifier", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_isolated_python_command_preserves_spaces_and_explicit_utf8(distribution_verifier):
+    command = distribution_verifier.isolated_python_command(
+        "path with spaces/python", "script with spaces.py"
+    )
+    assert command == ["path with spaces/python", "-I", "-B", "-X", "utf8", "script with spaces.py"]
+
+
+def test_isolated_python_ignores_hostile_encoding_environment(distribution_verifier, tmp_path):
+    import os
+    import subprocess
+    import sys
+    env = dict(os.environ, PYTHONUTF8="0", PYTHONIOENCODING="ascii", PYTHONPATH=str(tmp_path))
+    code = "import sys; assert sys.flags.isolated; assert sys.flags.utf8_mode; assert sys.dont_write_bytecode; print('\\u2588\\u2014\\u2713')"
+    completed = subprocess.run(
+        distribution_verifier.isolated_python_command(sys.executable, "-c", code),
+        cwd=tmp_path, env=env, capture_output=True, check=True,
+    )
+    assert completed.stdout.decode("utf-8").strip() == "\u2588\u2014\u2713"

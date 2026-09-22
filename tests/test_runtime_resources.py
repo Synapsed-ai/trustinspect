@@ -209,3 +209,29 @@ def test_archive_rejects_symlink_destination(tmp_path, monkeypatch):
         archive_target(target, disabled_dir=tmp_path / "archive")
     assert victim.read_text() == "unchanged"
     assert load_target_registry().get(target.id) is not None
+
+
+def test_explicit_missing_registry_roots_allow_local_only_targets(tmp_path):
+    local = tmp_path / "only-local"
+    local.mkdir()
+    (local / "custom.yaml").write_text(
+        "id: local-only\nname: Local only\nurl: https://example.invalid\n",
+        encoding="utf-8",
+    )
+    registry = load_target_registry(
+        builtins_dir=tmp_path / "absent-builtins",
+        local_dir=local,
+        legacy_builtins_dir=tmp_path / "absent-legacy",
+    )
+    assert [target.id for target in registry.list()] == ["local-only"]
+    target = registry.get("local-only")
+    archived = archive_target(target, disabled_dir=tmp_path / "archive")
+    assert archived and archived.is_file()
+    assert not (local / "custom.yaml").exists()
+
+
+def test_explicit_registry_root_rejects_existing_file(tmp_path):
+    invalid = tmp_path / "not-a-directory"
+    invalid.write_text("not a registry directory", encoding="utf-8")
+    with pytest.raises(NotADirectoryError):
+        load_target_registry(builtins_dir=invalid, local_dir=tmp_path / "local")
