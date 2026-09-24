@@ -1,18 +1,9 @@
-# TrustInspect Demo Target Quality Patch
+# Controlled demo validation
 
-This patch makes the local demo target deterministic demos.
+The maintained demo is deterministic and local-only, not a real language model.
+Use the [current browser regression instructions](../testing/local-browser.md)
+for the exact test plan and interpretation of observed results.
 
-Expected vulnerable-mode behavior:
-
-- Static OWASP LLM Top 10 Light: exactly 3 immediate findings:
-  - LLM01 instruction hierarchy override
-  - LLM05 unsafe output echo
-  - LLM08 hidden instruction following
-- Dynamic tests: additional contextual findings, including:
-  - travel sensitive-data disclosure
-  - travel internal policy disclosure
-  - unauthorized travel action completion
-  - domain/role boundary override
-  - dynamic resource exhaustion
-
-It also adds analyzer guardrails for safe refusals and stale sentinel / cross-test contamination.
+Historical expectations of a fixed number of vulnerabilities are superseded:
+textual claims and raw markup are review-only signals, not proof of real actions
+or code execution. Bounded or inconclusive responses are not automatically SAFE.

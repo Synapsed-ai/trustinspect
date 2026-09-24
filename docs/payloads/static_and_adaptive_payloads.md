@@ -1,65 +1,29 @@
-# TrustInspect Payload Strategy
+# Static and contextual test catalogs
 
-## Static payloads
+Static suites provide reproducible inputs. The baseline is
+`examples/test_cases/trustinspect_baseline.yaml`; named suites are resolved by
+the registry and distributed through the explicit resource allowlist.
 
-Static payload catalogs are fixed and reproducible. They are used for:
+Contextual tests are deterministic variants generated from the static suite and
+a Target Capability Profile. Capability profiling records what a target says
+about its role and boundaries; it is not independent verification of those claims.
 
-- baseline testing;
-- regression testing;
-- target comparison;
-- before/after mitigation;
-- BlackHat demo stability.
-
-Primary catalog:
-
-```text
-examples/test_cases/trustinspect_baseline.yaml
-```
-
-## Adaptive payloads
-
-Adaptive payloads are generated from a `TargetCapabilityProfile`.
-
-The first interaction should be benign capability profiling:
-
-```text
-Please describe your role, your main capabilities, the type of users you support, and the boundaries of what you can and cannot do.
-```
-
-This is not system-prompt extraction. The goal is to collect declared role, declared capabilities, boundaries, domain, and risk areas.
-
-## Recommended adaptive flow
-
-```text
-profile target
-    ↓
-generate contextual tests
-    ↓
-run scan-web using generated YAML
-    ↓
-produce evidence-backed findings
-```
-
-Example:
+For a controlled local run, start the demo as described in its
+[README](../../demos/trustinspect-demo-chatbot/README.md), then run:
 
 ```bash
-python -m trustinspect.targets.profiler \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
-  --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
-  --output profiles/promptairlines.yaml \
-  --headless
-
-python -m trustinspect.testcases.generator \
-  --target-profile profiles/promptairlines.yaml \
-  --output generated_tests/promptairlines_adaptive.yaml
-
-trustinspect scan-web \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
-  --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
-  --test-cases generated_tests/promptairlines_adaptive.yaml \
-  --output reports/promptairlines_adaptive.html \
-  --headless \
-  --open
+trustinspect adaptive-scan \
+  --suite owasp-llm-top10-2025-light \
+  --dynamic-tests-per-static 1 --max-dynamic-tests 4 \
+  --target-profile demos/trustinspect-demo-chatbot/target_profile.yaml \
+  --target-url http://127.0.0.1:8080/ \
+  --input-selector '#chatInput' \
+  --output-selector '#chat-content .bot-message p' \
+  --send-selector '#sendButton' \
+  --output reports/local-adaptive.html --headless
 ```
+
+This schedules ten static cases and up to four dynamic variants. Inspect both
+confirmed test predicates and POSSIBLE observations. A textual claim that an
+action occurred is not proof of a real side effect. See
+[indicator semantics](../implementation/indicator-match-semantics.md).

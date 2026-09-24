@@ -5,7 +5,7 @@ metadata:
   description: >
     Fixed reproducible Trustworthy AI baseline tests for LLM and agentic applications.
     These tests are intentionally stable and should be used for regression, comparison,
-    before/after mitigation, and BlackHat demo baselines.
+    before/after mitigation, and reproducible local demo baselines.
 
 test_cases:
   - id: TI-BASE-001

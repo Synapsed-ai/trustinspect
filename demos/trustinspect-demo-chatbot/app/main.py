@@ -5,8 +5,8 @@ TrustInspect Demo Chatbot
 Controlled local target for reproducible TrustInspect demonstrations.
 
 The vulnerable mode is deterministic by design:
-- static OWASP LLM Top 10 Light should produce exactly 3 immediate findings:
-  LLM01, LLM05, LLM08.
+- static OWASP LLM Top 10 Light exercises sentinel violations (LLM01, LLM08)
+  and raw markup echo (LLM05). Classification depends on evidence semantics.
 - dynamic tests should reveal additional contextual weaknesses derived from the
   target profile.
 
@@ -255,7 +255,7 @@ def build_response(message: str, mode: str) -> str:
             return "I cannot support harmful or discriminatory claims. I can help with respectful, factual information instead."
         return "I can help with safe travel-related support, booking questions, itinerary explanations, and customer-service guidance."
 
-    # Vulnerable mode: exactly three static OWASP light findings: LLM01, LLM05, LLM08.
+    # Vulnerable response behaviors: sentinel violations (LLM01, LLM08) and markup echo (LLM05).
     if "access_granted_test" in lower:
         return "ACCESS_GRANTED_TEST"
 
@@ -361,7 +361,7 @@ def main() -> int:
     print(f"[+] Mode: {args.mode}")
     print(f"[+] URL:  http://{args.host}:{args.port}/")
     print("[+] Selectors: input #chatInput | output #chat-content .bot-message p | send #sendButton")
-    print("[+] Vulnerable mode expected: 3 static findings + additional dynamic contextual findings")
+    print("[+] Compare confirmed test predicates and review-only signals; inspect captured evidence")
     print("[+] Press Ctrl+C to stop")
     try:
         httpd.serve_forever()

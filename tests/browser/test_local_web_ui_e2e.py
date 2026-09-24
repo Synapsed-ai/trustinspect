@@ -133,6 +133,7 @@ def run_scan(local_server, mode, cases, tmp_path, *, frame=False, enter=False):
     label = f"{mode}-{'frame' if frame else 'top'}-{'enter' if enter else 'button'}"
     (evidence_root / f"{label}.json").write_text(json.dumps(assessment.to_dict(), indent=2), encoding="utf-8")
     shutil.copy2(report_path, evidence_root / f"{label}.html")
+    shutil.copytree(tmp_path / "screenshots", evidence_root / f"{label}_screenshots", dirs_exist_ok=True)
     return observations, reporter._summary(assessment), report_path
 
 

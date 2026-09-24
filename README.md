@@ -9,17 +9,12 @@ It is designed for AI application assurance, not traditional web application sec
 
 ---
 
-## Demo Videos
+## Reproducible demonstrations
 
-The following videos demonstrate TrustInspect in action against PromptAirlines, a controlled vulnerable AI application used to showcase OWASP AI Testing Guide aligned testing workflows.
-
-| Video | Description |
-|---|---|
-| [Minimal AITG Scan](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect1.mov) | Runs a minimal OWASP AITG-aligned scan against PromptAirlines and shows one detected issue. |
-| [Full AITG Scan with Dynamic Testing](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect2.mov) | Runs a broader AITG scan with dynamic testing enabled, including two dynamic test executions and several detected vulnerabilities. |
-| [Additional TrustInspect Demo](https://synapsed.ai/wp-content/uploads/2026/06/TrustInspect3.mov) | Provides an additional demonstration of TrustInspect capabilities for evidence-based Trustworthy AI testing. |
-
----
+Use the [controlled local demo](demos/trustinspect-demo-chatbot/README.md) and
+[real-browser regression checks](docs/testing/local-browser.md) to reproduce
+current behavior. Historical videos and screenshots are not used as validation
+of the current analyzer. No external AI account is required for these checks.
 
 ## What TrustInspect does
 
@@ -28,7 +23,7 @@ TrustInspect helps testers and assurance teams:
 - run static Trustworthy AI test suites against LLM and agentic web UIs;
 - profile a target application to understand its declared role, capabilities, boundaries, likely sensitive assets, and risk areas;
 - generate dynamic contextual tests from the target capability profile;
-- collect prompt, response, screenshot, DOM, timing, and rationale evidence;
+- collect prompt, response, screenshot, timing, and rationale evidence (DOM snapshots only when explicitly enabled);
 - produce self-contained HTML reports with findings, observations, target profile, generated test plan summary, and evidence details;
 - compare vulnerable and hardened target behavior using the local demo chatbot.
 
@@ -38,7 +33,7 @@ TrustInspect helps testers and assurance teams:
 
 TrustInspect is **not**:
 
-- a replacement for Burp Suite, OWASP ZAP, SAST, DAST, or web vulnerability scanners;
+- a traditional web vulnerability scanner or static code analyzer;
 - a generic jailbreak toy;
 - a model benchmark only;
 - a guarantee of complete coverage or zero false positives.
@@ -49,7 +44,7 @@ TrustInspect focuses on **evidence-based Trustworthy AI testing** for LLM and ag
 
 ## Current status
 
-This repository is currently an **early v0.3-alpha** release candidate.
+This repository is currently an **early v0.3-alpha** development version.
 
 Supported capabilities include:
 
@@ -73,55 +68,23 @@ Known limitations:
 
 ---
 
-<!-- TRUSTINSPECT_POSITIONING_START -->
-## Positioning
+## Scope and evidence
 
-TrustInspect is designed as an evidence-based Trustworthy AI testing workbench for LLM and agentic applications. Its focus is application behavior, evidence collection, target profiling, static and dynamic test execution, and reporting for AI assurance.
+TrustInspect exercises application behavior through a web UI and records the
+observed response. Native API, RAG-trace and agent-trace adapters remain roadmap
+items. A textual claim of access or completion is not proof of a real action, and
+raw markup in a response is not proof that a browser executed it. Review-only
+signals are reported as `POSSIBLE VULNERABILITY`; a failure predicate is not a
+certificate of exploitability or comprehensive coverage.
 
-![TrustInspect positioning matrix](assets/screenshots/01-comparison-matrix.jpeg)
-<!-- TRUSTINSPECT_POSITIONING_END -->
-
-<!-- TRUSTINSPECT_SCREENSHOTS_START -->
-## Screenshots
-
-### Interactive launcher
-
-TrustInspect can be started in interactive mode to guide the tester through target selection, suite selection, and static/dynamic execution choices.
-
-![TrustInspect interactive launcher](assets/screenshots/01-launcher.png)
-
-### Live CLI execution
-
-During execution, TrustInspect displays the current test, prompt, response, progress counters, and classification in a terminal-first interface suitable for demos and hands-on testing.
-
-![TrustInspect CLI live run](assets/screenshots/02-cli-live-run.png)
-
-### Target capability profiling
-
-In adaptive mode, TrustInspect first profiles the target, builds a Target Capability Profile, and uses it to generate contextual dynamic tests.
-
-![TrustInspect target capability profile](assets/screenshots/03-target-capability-profile.png)
-
-### Controlled vulnerable demo target
-
-TrustInspect includes a local vulnerable/hardened demo chatbot so findings can be reproduced without depending on unstable third-party targets.
-
-![TrustInspect demo chatbot vulnerable mode](assets/screenshots/04-demo-chatbot-vulnerable.png)
-
-### HTML assessment report
-
-TrustInspect generates a structured HTML report with assessment metadata, executive summary, target profile, generated test plan, observations, evidence, and prompt/response details.
-
-![TrustInspect HTML report overview](assets/screenshots/05-html-report-overview.png)
-
-### Evidence details
-
-Observations are sorted by criticality and include expandable prompt/response evidence for each test.
-
-![TrustInspect report observations](assets/screenshots/06-html-report-observations.png)
-<!-- TRUSTINSPECT_SCREENSHOTS_END -->
+Generate [current sample reports](examples/sample-reports/README.md), or use the
+[real-browser regression workflow](docs/testing/local-browser.md) to inspect
+prompt/response evidence from controlled vulnerable and hardened local targets.
 
 ## Installation
+
+Run the following from a checkout of this repository. See the
+[installation guide](docs/installation.md) for wheel and platform details.
 
 ```bash
 python3 -m venv .venv
@@ -129,11 +92,9 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Install browser automation dependencies if needed:
-
-```bash
-pip install selenium webdriver-manager
-```
+Selenium and the driver-manager dependency are installed with the project.
+Web UI scans also require a compatible local browser and driver.
+Do not disable the browser sandbox to work around setup problems.
 
 ---
 
