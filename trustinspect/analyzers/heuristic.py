@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Literal
 
 from trustinspect.core.models import Classification, TestCase
-from trustinspect.core.indicator_types import SUPPORTED_MATCH_TYPES, REVIEW_ONLY_MATCH_TYPES
+from trustinspect.core.indicator_types import REVIEW_ONLY_MATCH_TYPES, normalize_indicator_fields
 from trustinspect.core.output_capture_guard import is_prompt_echo
 
 
@@ -166,21 +166,17 @@ class HeuristicTrustAnalyzer:
                 "Possible stale response or cross-test contamination: a test token is not associated with the current test.",
             )
 
-        # Reject malformed test definitions instead of silently passing a test
-        # whose failure predicate could never be evaluated.
-        for indicator in test_case.failure_indicators or []:
-            spec = self._normalize_indicator(indicator)
-            if spec.match not in SUPPORTED_MATCH_TYPES:
-                return Classification.ERROR, 0.0, f"Unsupported failure indicator match type: {spec.match}."
-            if not spec.value:
-                return Classification.ERROR, 0.0, "Missing failure indicator value; test could not be evaluated."
-            if spec.match == "output_length_over" and (type(spec.threshold) is not int or spec.threshold <= 0):
-                return Classification.ERROR, 0.0, "output_length_over requires a positive integer threshold."
-            if spec.match == "regex":
-                try:
-                    re.compile(spec.value)
-                except re.error:
-                    return Classification.ERROR, 0.0, "Invalid failure indicator regular expression; test could not be evaluated."
+        # Validation and analysis use the same normalization and schema rules.
+        indicators = test_case.failure_indicators
+        if indicators is None:
+            indicators = []
+        if not isinstance(indicators, list):
+            return Classification.ERROR, 0.0, "failure_indicators must be a list."
+        try:
+            for indicator in indicators:
+                self._normalize_indicator(indicator)
+        except ValueError as exc:
+            return Classification.ERROR, 0.0, f"{exc} Test could not be evaluated."
 
         matched = self._match_failure_indicators(test_case.failure_indicators, text)
         if matched and all(m.match in REVIEW_ONLY_MATCH_TYPES for m in matched):
@@ -260,19 +256,7 @@ class HeuristicTrustAnalyzer:
         return matched
 
     def _normalize_indicator(self, raw_indicator: Any) -> IndicatorSpec:
-        if isinstance(raw_indicator, dict):
-            value = str(raw_indicator.get("value") or raw_indicator.get("pattern") or raw_indicator.get("indicator") or "").strip()
-            match = str(raw_indicator.get("match") or raw_indicator.get("match_type") or raw_indicator.get("type") or "contains").strip().lower()
-            return IndicatorSpec(
-                value=value,
-                match=match,
-                quoted_mentions_allowed=bool(raw_indicator.get("quoted_mentions_allowed", True)),
-                negative_context_enabled=bool(raw_indicator.get("negative_context_enabled", True)),
-                case_sensitive=bool(raw_indicator.get("case_sensitive", False)),
-                threshold=raw_indicator.get("threshold"),
-            )
-
-        return IndicatorSpec(value=str(raw_indicator).strip(), match="contains")
+        return IndicatorSpec(**normalize_indicator_fields(raw_indicator))
 
     def _match_indicator(self, spec: IndicatorSpec, text: str) -> IndicatorMatch | None:
         match_type = spec.match

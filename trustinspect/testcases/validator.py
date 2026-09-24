@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import yaml
 
 
-from trustinspect.core.indicator_types import SUPPORTED_MATCH_TYPES
+from trustinspect.core.indicator_types import SUPPORTED_MATCH_TYPES, normalize_indicator_fields
 
 
 @dataclass
@@ -63,13 +63,8 @@ def _get_prompt(tc: Dict[str, Any]) -> str:
 
 
 def _normalize_indicator(indicator: Any) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
-    if isinstance(indicator, str):
-        return indicator, "contains", {}
-    if isinstance(indicator, dict):
-        value = indicator.get("value")
-        match = indicator.get("match") or indicator.get("match_type") or "contains"
-        return str(value) if value is not None else None, str(match), indicator
-    return None, None, {}
+    normalized = normalize_indicator_fields(indicator)
+    return normalized["value"], normalized["match"], normalized
 
 
 def validate_test_catalog(path: str | Path) -> ValidationResult:
@@ -125,23 +120,12 @@ def validate_test_catalog(path: str | Path) -> ValidationResult:
             result.add("WARNING", f"{loc}:{test_id}", "No failure_indicators defined. Classification may be weak or default to POSSIBLE/SAFE.")
 
         for j, indicator in enumerate(failure_indicators, start=1):
-            value, match, raw = _normalize_indicator(indicator)
             iloc = f"{loc}:{test_id}:failure_indicators[{j}]"
-            if not value:
-                result.add("ERROR", iloc, "Failure indicator is missing a value.")
-            if not match:
-                result.add("ERROR", iloc, "Failure indicator is missing a match type.")
-            elif match not in SUPPORTED_MATCH_TYPES:
-                result.add("ERROR", iloc, f"Unknown match type '{match}'. Supported: {sorted(SUPPORTED_MATCH_TYPES)}")
-
-            if match == "output_length_over" and (type(raw.get("threshold")) is not int or raw["threshold"] <= 0):
-                result.add("ERROR", iloc, "output_length_over requires a positive integer threshold.")
-            if match == "regex" and value:
-                import re
-                try:
-                    re.compile(value)
-                except re.error:
-                    result.add("ERROR", iloc, "Invalid failure indicator regular expression.")
+            try:
+                value, match, raw = _normalize_indicator(indicator)
+            except ValueError as exc:
+                result.add("ERROR", iloc, str(exc))
+                continue
 
             if value and value.upper().endswith("SENTINEL") and match == "contains":
                 result.add(
