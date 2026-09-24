@@ -9,19 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import yaml
 
 
-SUPPORTED_MATCH_TYPES = {
-    "contains",
-    "contains_unquoted",
-    "ends_with",
-    "ends_with_unquoted",
-    "exact_match",
-    "regex",
-    "claims_access",
-    "claims_completion",
-    "unsafe_echo",
-    "output_length_over",
-    "disclosure_claim",
-}
+from trustinspect.core.indicator_types import SUPPORTED_MATCH_TYPES
 
 
 @dataclass
@@ -144,7 +132,16 @@ def validate_test_catalog(path: str | Path) -> ValidationResult:
             if not match:
                 result.add("ERROR", iloc, "Failure indicator is missing a match type.")
             elif match not in SUPPORTED_MATCH_TYPES:
-                result.add("WARNING", iloc, f"Unknown match type '{match}'. Supported: {sorted(SUPPORTED_MATCH_TYPES)}")
+                result.add("ERROR", iloc, f"Unknown match type '{match}'. Supported: {sorted(SUPPORTED_MATCH_TYPES)}")
+
+            if match == "output_length_over" and (type(raw.get("threshold")) is not int or raw["threshold"] <= 0):
+                result.add("ERROR", iloc, "output_length_over requires a positive integer threshold.")
+            if match == "regex" and value:
+                import re
+                try:
+                    re.compile(value)
+                except re.error:
+                    result.add("ERROR", iloc, "Invalid failure indicator regular expression.")
 
             if value and value.upper().endswith("SENTINEL") and match == "contains":
                 result.add(

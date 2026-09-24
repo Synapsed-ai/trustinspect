@@ -47,7 +47,7 @@ def trim_text(value: Optional[str], limit: int = 900) -> str:
     value = value or ""
     if limit is None or limit <= 0:
         return value
-    if len(value) <= limit:
+    if limit is None or limit <= 0 or len(value) <= limit:
         return value
     return value[:limit] + "\n... [truncated] ..."
 
@@ -75,7 +75,6 @@ def render_banner(console: Console, license_name: str = "Apache-2.0", version: s
     meta.append(f"Open Source License: {license_name}", style="ti.value")
     meta.append("  •  ", style="ti.dim")
     meta.append(version, style="ti.value")
-    meta.append("\nBlackHat Arsenal build", style="ti.title")
 
     console.print(
         Panel(
@@ -161,7 +160,7 @@ def render_prompt_response(
 ) -> None:
     console.print(
         Panel(
-            trim_text(prompt, prompt_chars),
+            Text(trim_text(prompt, prompt_chars)),
             title="[ti.label]PROMPT[/ti.label]",
             border_style="ti.label",
             box=HEAVY,
@@ -172,7 +171,7 @@ def render_prompt_response(
 
     console.print(
         Panel(
-            trim_text(response, response_chars),
+            Text(trim_text(response, response_chars)),
             title="[ti.title]RESPONSE[/ti.title]",
             border_style="ti.title",
             box=HEAVY,
@@ -279,7 +278,7 @@ def render_progress_event(
         if prompt:
             console.print(
                 Panel(
-                    trim_text(str(prompt), prompt_chars),
+                    Text(trim_text(str(prompt), prompt_chars)),
                     title="[ti.label]PROMPT[/ti.label]",
                     border_style="ti.label",
                     box=HEAVY,
@@ -337,13 +336,17 @@ class TerminalUI:
         no_banner: bool = False,
         license_name: str = "Apache-2.0",
         version: str = "v0.2.0",
+        enabled: Optional[bool] = None,
+        show_banner: Optional[bool] = None,
+        show_full_prompt: bool = False,
+        show_full_response: bool = False,
         **_: Any,
     ) -> None:
         self.console = console or make_console()
-        self.prompt_chars = prompt_chars
-        self.response_chars = response_chars
-        self.quiet = bool(quiet or quiet_ui)
-        self.no_banner = no_banner
+        self.prompt_chars = 0 if show_full_prompt else prompt_chars
+        self.response_chars = 0 if show_full_response else response_chars
+        self.quiet = bool(quiet or quiet_ui or enabled is False)
+        self.no_banner = bool(no_banner or show_banner is False)
         self.license_name = license_name
         self.version = version
 
@@ -440,6 +443,8 @@ def _ti_terminalui_target_panel_flexible(self, *args, **kwargs):
       TypeError: target_panel() got multiple values for argument 'mode'
     when the method signature had a positional `mode` parameter.
     """
+    if self.quiet:
+        return
     from datetime import datetime, timezone
     from rich.panel import Panel
     from rich.table import Table
@@ -542,7 +547,7 @@ except NameError:
 # from different scanner versions and renders them in the CLI without breaking scans.
 def _ti_safe_trim(value, limit=900):
     value = "" if value is None else str(value)
-    if len(value) <= limit:
+    if limit is None or limit <= 0 or len(value) <= limit:
         return value
     return value[:limit] + "\n... [truncated] ..."
 
@@ -577,6 +582,8 @@ def _ti_status_style(status):
 
 
 def _ti_render_live_event(self, event):
+    if self.quiet:
+        return
     try:
         from rich.panel import Panel
         from rich.table import Table
@@ -604,12 +611,12 @@ def _ti_render_live_event(self, event):
     status = str(_ti_event_value(event, "classification", "status", default=""))
     confidence = _ti_event_value(event, "confidence", default=None)
 
-    prompt_chars = int(getattr(self, "prompt_chars", 700) or 700)
-    response_chars = int(getattr(self, "response_chars", 900) or 900)
+    prompt_chars = int(getattr(self, "prompt_chars", 700) or 0)
+    response_chars = int(getattr(self, "response_chars", 900) or 0)
 
     if event_type in {"test_start", "start_test", "before_test"}:
         title = f"[{idx}/{total}] {test_id} — {test_name}" if total else f"{test_id} — {test_name}"
-        console.print(Rule(title, style="bold green"))
+        console.print(Rule(Text(title), style="bold green"))
 
         table = Table.grid(padding=(0, 2))
         table.add_column(style="bold green", width=12)
@@ -627,12 +634,12 @@ def _ti_render_live_event(self, event):
         console.print(Panel(table, title="Test Metadata", border_style="green", box=ROUNDED))
 
         if prompt:
-            console.print(Panel(_ti_safe_trim(prompt, prompt_chars), title="PROMPT", border_style="green", box=ROUNDED))
+            console.print(Panel(Text(_ti_safe_trim(prompt, prompt_chars)), title="PROMPT", border_style="green", box=ROUNDED))
         return
 
     if event_type in {"test_result", "test_complete", "after_test", "result"}:
         if response:
-            console.print(Panel(_ti_safe_trim(response, response_chars), title="RESPONSE", border_style="green", box=ROUNDED))
+            console.print(Panel(Text(_ti_safe_trim(response, response_chars)), title="RESPONSE", border_style="green", box=ROUNDED))
 
         table = Table.grid(padding=(0, 2))
         table.add_column(style="bold green", width=12)
@@ -647,7 +654,7 @@ def _ti_render_live_event(self, event):
             table.add_row("Executed", str(idx))
             table.add_row("Remaining", str(max(total - idx, 0)))
         if rationale:
-            table.add_row("Rationale", _ti_safe_trim(rationale, 350))
+            table.add_row("Rationale", Text(_ti_safe_trim(rationale, 350)))
         console.print(Panel(table, title="RESULT", border_style=_ti_status_style(status), box=ROUNDED))
         return
 
@@ -663,4 +670,3 @@ try:
 except NameError:
     pass
 # --- end TrustInspect realtime progress compatibility patch ---
-
