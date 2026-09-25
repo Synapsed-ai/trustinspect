@@ -1,6 +1,6 @@
 # TrustInspect Demo Chatbot
 
-Self-hosted production-like chatbot application for BlackHat Arsenal.
+Historical demo pointer. Use the maintained controlled local target in `../trustinspect-demo-chatbot/`.
 
 The demo app should expose two modes:
 

@@ -16,7 +16,7 @@ Public targets such as PromptAirlines, Gandalf, GPA, HackMerlin, and institution
 
 ### Vulnerable mode
 
-Designed to produce **three immediate findings** on fixed/static OWASP LLM Top 10 Light tests:
+Contains three intentionally weak response behaviors. With the current analyzer, the two sentinel violations are confirmed test-predicate findings; raw script-like text is a review-only observation, not evidence of browser execution:
 
 | Static test | Intended weakness |
 |---|---|
@@ -24,7 +24,7 @@ Designed to produce **three immediate findings** on fixed/static OWASP LLM Top 1
 | OWASP-LLM05-LIGHT-001 | Unsafe output echo of script-like content |
 | OWASP-LLM08-LIGHT-001 | Hidden instruction following with `TRUSTINSPECT_SENTINEL` |
 
-Dynamic tests should then find additional contextual weaknesses, typically between **3 and 7**, depending on the dynamic suite and analyzer rules:
+Dynamic tests exercise additional contextual behaviors. Counts depend on the selected templates, test budget and analyzer semantics; do not assume a fixed number of findings:
 
 - contextual sensitive data disclosure using fake travel assets;
 - system/internal policy disclosure for the travel assistant;
@@ -51,19 +51,19 @@ The same test plan should produce materially fewer findings:
 Terminal 1:
 
 ```bash
-cd /Users/mat/Downloads/trustinspect_seed_webui/demos/trustinspect-demo-chatbot
+cd /path/to/trustinspect/demos/trustinspect-demo-chatbot
 ./run_vulnerable.sh
 ```
 
 Terminal 2:
 
 ```bash
-cd /Users/mat/Downloads/trustinspect_seed_webui
+cd /path/to/trustinspect
 source .venv/bin/activate
 ./demos/trustinspect-demo-chatbot/scan_owasp_light_static.sh
 ```
 
-Expected: 3 static findings.
+Expected for the current static-light fixture: two confirmed sentinel predicates, no execution errors, and review-only observations for inconclusive cases and raw markup.
 
 ## Run static + dynamic
 
@@ -76,12 +76,12 @@ Terminal 1:
 Terminal 2:
 
 ```bash
-cd /Users/mat/Downloads/trustinspect_seed_webui
+cd /path/to/trustinspect
 source .venv/bin/activate
 ./demos/trustinspect-demo-chatbot/scan_owasp_light_dynamic1.sh
 ```
 
-Expected: 3 static findings plus additional dynamic contextual findings.
+Inspect both confirmed test-predicate findings and POSSIBLE observations; correlate each with its captured evidence.
 
 ## Run hardened comparison
 
@@ -94,7 +94,7 @@ Stop vulnerable mode, then start hardened mode:
 Then run:
 
 ```bash
-cd /Users/mat/Downloads/trustinspect_seed_webui
+cd /path/to/trustinspect
 source .venv/bin/activate
 ./demos/trustinspect-demo-chatbot/scan_hardened_comparison.sh
 ```
@@ -135,3 +135,5 @@ trustinspect adaptive-scan \
   --headless \
   --open
 ```
+
+See [local-browser validation](../../docs/testing/local-browser.md) for automated before/after checks.

@@ -1,56 +1,10 @@
-# TrustInspect Repository Structure
+# Maintaining repository structure
 
-Recommended professional layout:
+Use [the current layout](../architecture/repository_structure.md). Runtime inputs
+are governed by `trustinspect/_resource_manifest.json`; moving them requires
+coordinated changes to packaging, loaders and tests.
 
-```text
-trustinspect/
-  analyzers/
-  core/
-  dynamic/
-  evidence/
-  findings/
-  interactive/
-  reporting/
-  scanners/
-  suites/
-  targets/
-  testcases/
-  ui/
-
-targets/
-  builtin/       # official target profiles distributed with the tool
-  local/         # locally calibrated target profiles, usually gitignored
-  disabled/      # disabled profiles kept for traceability
-
-examples/
-  commands/      # runnable CLI examples
-  test_cases/    # sample static test case files
-  test_suites/   # sample suite definitions
-  dynamic_templates/ # example dynamic templates if not moved to resources
-
-demos/
-  trustinspect-demo-chatbot/
-
-docs/
-  architecture.md
-  demo/
-  blackhat-arsenal/
-  payloads/
-  maintenance/
-
-assets/
-  report/
-
-tools/
-  migrations/    # historical patch/migration scripts
-
-scripts/
-  # stable utility scripts only; no one-off patch scripts
-```
-
-Rules:
-
-- Do not store official target profiles under `examples/targets`.
-- Do not keep one-off `patch_*.py` scripts in the project root.
-- Do not commit local calibration output unless intentionally promoted to `targets/builtin`.
-- Generated reports should stay under `reports/` and usually be gitignored.
+Generated reports, screenshots and locally calibrated targets are workspace
+state. Keep them out of normal source commits. Preserve required LICENSE and
+NOTICE files, test fixtures and validation utilities. Legacy maintenance scripts
+need a dependency/reference review before removal; this cleanup does not run them.

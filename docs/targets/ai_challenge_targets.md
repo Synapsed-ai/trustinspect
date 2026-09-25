@@ -1,17 +1,12 @@
-# AI Challenge Targets for TrustInspect
+# AI targets and authorization
 
-These targets are AI-specific challenge or training environments. They are useful for demos and selector/runtime hardening, but controlled targets remain preferred for fully reproducible BlackHat demos.
+Use the [controlled local demo](../../demos/trustinspect-demo-chatbot/README.md)
+for reproducible regression checks. The local-browser workflow binds its HTTP
+fixtures to `127.0.0.1`; it needs no external AI account or API key.
 
-## Ready / calibrated
+Bundled external target definitions are configuration examples, not a statement
+of current availability, selector correctness, service terms or permission to
+test. UI and rate-limit behavior may change. Verify authorization and calibrate
+selectors before a live assessment. A known target name is not authorization.
 
-- PromptAirlines
-- TrustInspect Demo Chatbot local
-
-## Known but selector calibration required
-
-- GPT Prompt Attack (`https://gpa.43z.one`)
-- Gandalf by Lakera baseline/adventure (`https://gandalf.lakera.ai/...`)
-- HackMerlin (`https://hackmerlin.io`)
-- Immersive Labs Prompt Injection Lab (`https://prompting.ai.immersivelabs.com`)
-- Tensor Trust (`https://tensortrust.ai`)
-- Dreadnode Crucible (`https://crucible.dreadnode.io`, account likely required)
+Native API, RAG trace and agent trace integrations remain roadmap items.
