@@ -1,4 +1,4 @@
-"""The release manifest must retain transitive versions and reject bad hashes."""
+"""Release manifests retain transitive versions and reject malformed inputs."""
 import importlib.util
 from pathlib import Path
 import pytest
@@ -38,3 +38,14 @@ def test_empty_audit_is_not_success():
 def test_duplicate_canonical_names_fail():
     with pytest.raises(ValueError):
         audit.pins_from_report({"install": [item(), item("example-package")]})
+
+
+def test_metadata_reader_explicitly_uses_utf8(tmp_path, monkeypatch):
+    path = tmp_path / "metadata.json"
+    path.write_text('{"text":"città — 日本語"}', encoding="utf-8")
+    original = Path.read_text
+    def checked(self, *args, **kwargs):
+        assert kwargs.get("encoding") == "utf-8"
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(Path, "read_text", checked)
+    assert audit.read_json(path)["text"] == "città — 日本語"

@@ -28,6 +28,10 @@ except ImportError:  # Python 3.10 controller only
 AUDITOR = "pip-audit==2.10.1"
 
 
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def canonical(name):
     return re.sub(r"[-_.]+", "-", name).lower()
 
@@ -131,6 +135,15 @@ def main():
             metadata = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8"))
             summary["declared_runtime"] = metadata["project"]["dependencies"]
             summary["declared_build"] = metadata["build-system"]["requires"]
+            minima = {}
+            for req in [*summary["declared_runtime"], *summary["declared_build"],
+                        *metadata["project"]["optional-dependencies"]["dev"],
+                        *metadata["project"]["optional-dependencies"]["packaging"]]:
+                match = re.fullmatch(r"([A-Za-z0-9_.-]+)>=([0-9A-Za-z.]+)", req)
+                if not match:
+                    raise ValueError("Minimum-version audit needs an explicit lower bound")
+                minima[canonical(match[1])] = match[2]
+            (out / "declared-minima.txt").write_text("".join(f"{k}=={v}\n" for k, v in sorted(minima.items())), encoding="utf-8")
             builder = newenv(temp / "builder")
             run([builder, "-m", "pip", "install", "--upgrade", "pip", *summary["declared_build"],
                  *metadata["project"]["optional-dependencies"]["packaging"]], "build-tool-install")
@@ -146,7 +159,7 @@ def main():
             runtime = newenv(temp / "runtime")
             run([runtime, "-m", "pip", "install", "--upgrade", "pip"], "runtime-pip-install")
             run([runtime, "-m", "pip", "install", "--report", out / "install-report.json", wheel], "runtime-install")
-            report = json.loads((out / "install-report.json").read_text())
+            report = read_json(out / "install-report.json")
             records = pins_from_report(report)
             direct_names = {canonical(re.match(r"[A-Za-z0-9_.-]+", req).group()) for req in summary["declared_runtime"]}
             for record in records:
@@ -162,28 +175,31 @@ def main():
             auditor = newenv(temp / "auditor")
             run([auditor, "-m", "pip", "install", AUDITOR], "auditor-install")
             freeze(auditor, "auditor-environment")
-            for scope, requirements in (("runtime", pins), ("build", toolpins)):
+            for scope, requirements in (("runtime", pins), ("build", toolpins), ("declared-minima", out / "declared-minima.txt")):
                 audit = out / f"audit-{scope}.json"
                 res = run([auditor, "-m", "pip_audit", "--strict", "--no-deps", "--disable-pip", "--progress-spinner", "off",
                            "-r", requirements, "--format", "json", "--output", audit], f"audit-{scope}", allow_failure=True)
                 summary["audits"][scope] = {"exit_code": res.returncode}
                 if audit.exists():
-                    data = json.loads(audit.read_text())
+                    data = read_json(audit)
                     deps = data["dependencies"] if isinstance(data, dict) else data
                     summary["audits"][scope].update(packages=len(deps),
                         vulnerabilities=sum(len(d.get("vulns", [])) for d in deps),
                         skipped=[d["name"] for d in deps if d.get("skip_reason")])
+            sbom_result = run([auditor, "-m", "pip_audit", "--strict", "--no-deps", "--disable-pip", "--progress-spinner", "off",
+                 "-r", pins, "--format", "cyclonedx-json", "--output", out / "runtime-sbom.json"], "runtime-sbom", allow_failure=True)
+            summary["sbom_exit_code"] = sbom_result.returncode
             replay = newenv(temp / "replay")
+            run([replay, "-m", "pip", "install", "--upgrade", "pip"], "replay-pip-install")
             run([replay, "-m", "pip", "install", "--require-hashes", "--only-binary=:all:", "-r", hashes], "hashed-reinstall")
             run([replay, "-m", "pip", "install", "--no-deps", wheel], "replay-wheel-install")
             run([replay, "-m", "pip", "check"], "replay-pip-check")
-            # Reuse the existing, independently reviewed installed-package probe in this exact frozen environment.
             spec = importlib.util.spec_from_file_location("release_probe", source / "scripts/maintenance/verify_installed_distribution.py")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             checked = module.inspect_wheel(wheel, source)
             expected = temp / "expected.json"
-            expected.write_text(json.dumps(checked["hashes"]))
+            expected.write_text(json.dumps(checked["hashes"]), encoding="utf-8")
             probe = temp / "probe.py"
             probe.write_text(module.PROBE, encoding="utf-8")
             workspace = temp / "outside-checkout"
@@ -192,12 +208,20 @@ def main():
             summary["hashed_reinstall_and_probe"] = "passed"
             if args.tests:
                 run([replay, "-m", "pip", "install", "-c", pins, *metadata["project"]["optional-dependencies"]["dev"]], "test-tool-install")
-                freeze(replay, "test-environment")
+                testpins = freeze(replay, "test-environment")
                 run([replay, "-m", "pytest", "-q", "--junitxml=" + str(out / "unit-tests.xml")], "unit-tests", cwd=repo)
                 run([replay, "-m", "pytest", "-q", "-s", "tests/browser", "--junitxml=" + str(out / "browser-tests.xml")],
                     "browser-tests", cwd=repo, extra_env={"TRUSTINSPECT_BROWSER_TESTS": "1", "TI_BROWSER_EVIDENCE_DIR": str(out / "browser")})
                 summary["tests"] = "passed"
-            summary["status"] = "passed" if all(a["exit_code"] == 0 and not a.get("skipped") for a in summary["audits"].values()) else "audit-findings-or-error"
+                res = run([auditor, "-m", "pip_audit", "--strict", "--no-deps", "--disable-pip", "--progress-spinner", "off",
+                           "-r", testpins, "--format", "json", "--output", out / "audit-tests.json"], "audit-tests", allow_failure=True)
+                summary["audits"]["tests"] = {"exit_code": res.returncode}
+                if (out / "audit-tests.json").exists():
+                    deps = read_json(out / "audit-tests.json")["dependencies"]
+                    summary["audits"]["tests"].update(packages=len(deps),
+                        vulnerabilities=sum(len(d.get("vulns", [])) for d in deps),
+                        skipped=[d["name"] for d in deps if d.get("skip_reason")])
+            summary["status"] = "passed" if all(a["exit_code"] == 0 and a.get("packages", 0) > 0 and not a.get("skipped") for a in summary["audits"].values()) and summary["sbom_exit_code"] == 0 else "audit-findings-or-error"
     except Exception as exc:
         summary["status"] = "error"
         summary["error"] = str(exc)
