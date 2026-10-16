@@ -57,6 +57,7 @@ def pins_from_report(report):
                         "requires_dist": meta.get("requires_dist", []),
                         "license_expression": meta.get("license_expression"),
                         "license": meta.get("license"),
+                        "license_classifiers": [c for c in meta.get("classifier", []) if c.startswith("License ::")],
                         "project_urls": meta.get("project_url", [])})
     if not records:
         raise ValueError("Empty dependency resolution is not an audit")
@@ -112,7 +113,12 @@ def main():
 
     def newenv(path):
         venv.EnvBuilder(with_pip=True, system_site_packages=False).create(path)
-        return path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        py = path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        # Python <=3.11 may bootstrap an old setuptools unrelated to the project.
+        # Remove it only from this newly created disposable venv. Builders and
+        # test environments subsequently install the declared secure minimum.
+        run([py, "-m", "pip", "uninstall", "-y", "setuptools"], path.name + "-bootstrap-clean")
+        return py
 
     def freeze(py, name):
         result = run([py, "-m", "pip", "list", "--format=json"], name + "-packages")
@@ -170,12 +176,12 @@ def main():
             hashes = out / "runtime-hashed.txt"
             hashes.write_text("".join(f'{r["name"]}=={r["version"]} --hash=sha256:{r["sha256"]}\n' for r in records), encoding="utf-8")
             summary["dependencies"] = [{k: r[k] for k in ("name", "version", "direct")} for r in records]
-            freeze(runtime, "runtime-environment")
+            runtime_environment = freeze(runtime, "runtime-environment")
             run([runtime, "-m", "pip", "inspect"], "pip-inspect")
             auditor = newenv(temp / "auditor")
             run([auditor, "-m", "pip", "install", AUDITOR], "auditor-install")
             freeze(auditor, "auditor-environment")
-            for scope, requirements in (("runtime", pins), ("build", toolpins), ("declared-minima", out / "declared-minima.txt")):
+            for scope, requirements in (("runtime", pins), ("runtime-environment", runtime_environment), ("build", toolpins), ("declared-minima", out / "declared-minima.txt")):
                 audit = out / f"audit-{scope}.json"
                 res = run([auditor, "-m", "pip_audit", "--strict", "--no-deps", "--disable-pip", "--progress-spinner", "off",
                            "-r", requirements, "--format", "json", "--output", audit], f"audit-{scope}", allow_failure=True)
