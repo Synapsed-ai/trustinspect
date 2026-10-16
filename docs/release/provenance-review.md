@@ -1,0 +1,34 @@
+# Provenance and media review
+
+Review inventory, 16 October 2026. This document records what can be checked from repository/package evidence; it is not a substitute for the maintainer's confirmation of ownership and third-party permissions. No license was changed by this review.
+
+| Material | Evidence available | Remaining owner decision |
+| --- | --- | --- |
+| TrustInspect Python source | Git history; project LICENSE and NOTICE declaring Apache-2.0 | Confirm contributor rights and any imported source not separately identified. |
+| Runtime dependencies | Exact resolved versions, requires_dist and license metadata in release audit artifacts | Review any missing/ambiguous metadata against the actual upstream license file; retain notices when redistributing bundled dependencies. |
+| Build/test dependencies | Complete frozen environments and advisory audit | Distinguish build-only tooling from shipped runtime dependencies. |
+| Baseline suite | Eight bundled definitions, project source history | Confirm original authorship or source permissions. |
+| OWASP LLM suites | Ten light and 226 full definitions; taxonomy/version labels; source field denotes execution origin, not copyright provenance | Confirm payload origin, imported/adapted text and any required notices. Do not automatically relicense borrowed text under the code license. |
+| AITG suites | 32 light and 160 full definitions; upstream guide links in catalog metadata | Confirm exact upstream revision and which text was adapted. |
+| Presentation matrix and six screenshots | Restored original Git blobs; two bounded label edits separately recorded | Confirm rights to included visual material and claims in the comparison matrix. Historical counters are not new test evidence. |
+| Three demo videos | Original Synapsed-hosted URLs retained unchanged | Confirm ownership/permissions and playback; no video file was edited or deleted. |
+
+OWASP's source documentation identifies CC BY-SA 4.0 for the AI Testing Guide and LLM Top 10. A taxonomy reference and an adaptation of expressive text are not automatically the same thing; classify actual reused material before deciding its obligations. Sources checked:
+- https://github.com/OWASP/www-project-ai-testing-guide/blob/main/Document/content/1.1_Preface_and_Contributors.md
+- https://github.com/GenAI-Security-Project/GenAI-LLM-Top10
+
+The full 436 catalog definitions are execution/schema inputs, not 436 independently proven detections. This review does not modify payloads, mappings or runtime analysis.
+
+## Approved presentation edits
+
+Only the event-label rectangles were changed:
+- `01-launcher.png`: rectangle [90, 312, 294, 329], original blob `07a1f91d0f8ebc28425e971e71b76a71cfa6bc78`.
+- `05-html-report-overview.png`: rectangle [214, 128, 374, 154], original blob `d5b484100302a7d2dcb21e153e91ead08696f4b1`.
+
+Dimensions, every pixel outside those rectangles, and original ICC profiles remain unchanged. Counts, classifications, dates, version strings and test evidence were not altered. These are presentation edits to historical screenshots, not fresh executions. `tools/prepare_presentation_media.py` reproduces the edits only from the exact original blobs; it intentionally refuses already-edited or different originals. Pillow is an optional maintenance dependency, not a runtime requirement.
+
+## History scan interpretation
+
+The Gitleaks workflow scans all history reachable from fetched branches/tags and records the ref list and commit count. Its three initial signals were detect-secrets `hashed_secret` fields in `.secrets.baseline` at commit `89ed0bea08152c34de4c668dc5942b1e044a5675`, lines 134, 142 and 150, blob `48288487972f4f2e011e9876f8aebf5c4efd1172`.
+
+These exact locations were manually inspected as digest metadata, not usable credentials. The scanner still reports them; the wrapper records the reviewed fingerprints separately. Any different commit, file, line, rule, fingerprint or blob requires new review. No whole file/rule is excluded. Only sanitized locations are retained; matched values/snippets and raw tool output remain ephemeral. Deleted/unreachable server objects, unprovided LFS content and text visible only inside images/videos are not covered by this Git text scan.

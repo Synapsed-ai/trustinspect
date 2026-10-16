@@ -29,5 +29,5 @@ include = ["trustinspect*"]
 trustinspect = ["reporting/templates/*.j2", "_resource_manifest.json"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "setuptools>=83.0.0"]
+dev = ["pytest>=9.0.3", "setuptools>=83.0.0"]
 packaging = ["build>=1.2.2", "twine>=6.0"]
