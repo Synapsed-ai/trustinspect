@@ -10,7 +10,7 @@ Use it only on systems you own, operate, or are explicitly authorized to test.
 
 Please do not publicly disclose security vulnerabilities in TrustInspect before maintainers have had a reasonable opportunity to investigate and release a fix.
 
-Report suspected vulnerabilities privately to the maintainers through the preferred project contact channel.
+Report suspected vulnerabilities in TrustInspect privately to [security@synapsed.ai](mailto:security@synapsed.ai).
 
 Include:
 
