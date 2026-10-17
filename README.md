@@ -28,7 +28,7 @@ TrustInspect helps testers and assurance teams:
 - run static Trustworthy AI test suites against LLM and agentic web UIs;
 - profile a target application to understand its declared role, capabilities, boundaries, likely sensitive assets, and risk areas;
 - generate dynamic contextual tests from the target capability profile;
-- collect prompt, response, screenshot, timing, and rationale evidence (DOM snapshots only when explicitly enabled);
+- collect prompt, response, screenshot, timing, and rationale evidence (including local DOM snapshots on execution errors for diagnosis);
 - produce self-contained HTML reports with findings, observations, target profile, generated test plan summary, and evidence details;
 - compare vulnerable and hardened target behavior using the local demo chatbot.
 

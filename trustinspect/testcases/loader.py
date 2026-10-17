@@ -7,20 +7,28 @@ import yaml
 
 from trustinspect.core.models import TestCase
 from trustinspect.resources import resolve_input_file
+from trustinspect.core.indicator_types import validated_indicator_list
 
 
 def load_test_case_rows(path: str | Path) -> list[dict]:
-    data = yaml.safe_load(resolve_input_file(path).read_text(encoding="utf-8"))
-    if data is None:
-        return []
-    if isinstance(data, list):
-        rows = data
-    elif isinstance(data, dict):
-        rows = data.get("test_cases", [])
-    else:
-        raise ValueError("Test catalog must contain a list or a test_cases mapping")
-    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
-        raise ValueError("test_cases must be a list of mappings")
+    # Avoid preloading the standalone validator when invoked with python -m.
+    from trustinspect.testcases.validator import (
+        catalog_id, catalog_prompt, extract_test_cases, validate_catalog_data,
+    )
+    resolved = resolve_input_file(path)
+    try:
+        data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid YAML test catalog: {resolved}") from exc
+    validation = validate_catalog_data(data, resolved)
+    errors = [str(issue) for issue in validation.issues if issue.level == "ERROR"]
+    if errors:
+        raise ValueError("Invalid test catalog:\n" + "\n".join(errors))
+    rows = []
+    for row in extract_test_cases(data):
+        # Canonical aliases, while retaining every original author/metadata field.
+        rows.append({**row, "id": catalog_id(row), "payload": catalog_prompt(row),
+                     "failure_indicators": validated_indicator_list(row.get("failure_indicators"))})
     return rows
 
 
@@ -33,10 +41,10 @@ def load_test_cases_yaml(path: str | Path) -> List[TestCase]:
                 id=str(row.get("id") or f"TC-{idx:03d}"),
                 name=str(row.get("name") or "TrustInspect Test Case"),
                 category=str(row.get("category") or "Uncategorized"),
-                objective=str(row.get("objective") or "Execute TrustInspect test case and observe target behavior."),
+                objective=str(row.get("objective") or row.get("expected_behavior") or "Execute TrustInspect test case and observe target behavior."),
                 payload=str(row.get("payload") or ""),
                 expected_behavior=row.get("expected_behavior"),
-                failure_indicators=list(row.get("failure_indicators") or []),
+                failure_indicators=validated_indicator_list(row.get("failure_indicators")),
                 mappings=dict(row.get("mappings") or {}),
                 metadata=dict(row.get("metadata") or {}),
             )
@@ -55,6 +63,7 @@ def test_case_to_dict(test_case: TestCase) -> dict:
             data["payload"] = data["prompt"]
         if "prompt" not in data and "payload" in data:
             data["prompt"] = data["payload"]
+        data["failure_indicators"] = validated_indicator_list(data.get("failure_indicators"))
         data.setdefault("metadata", {})
         return data
     return {
@@ -64,7 +73,7 @@ def test_case_to_dict(test_case: TestCase) -> dict:
         "objective": test_case.objective,
         "payload": test_case.payload,
         "expected_behavior": test_case.expected_behavior,
-        "failure_indicators": list(test_case.failure_indicators or []),
+        "failure_indicators": validated_indicator_list(test_case.failure_indicators),
         "mappings": dict(test_case.mappings or {}),
         "metadata": dict(test_case.metadata or {}),
     }

@@ -8,13 +8,13 @@ SUPPORTED_MATCH_TYPES = frozenset({
     "contains", "contains_anywhere", "contains_unquoted", "ends_with",
     "ends_with_unquoted", "exact", "exact_match", "regex",
     "disclosure_claim", "specific_internal_claim", "claims_access",
-    "claims_completion", "unsafe_echo", "output_length_over",
+    "claims_completion", "unsafe_echo", "output_length_over", "asserted_claim",
 })
 
 # Claims and raw output alone do not establish downstream effects or provenance.
 REVIEW_ONLY_MATCH_TYPES = frozenset({
     "disclosure_claim", "specific_internal_claim", "claims_access",
-    "claims_completion", "unsafe_echo",
+    "claims_completion", "unsafe_echo", "asserted_claim",
 })
 
 
@@ -55,6 +55,10 @@ def normalize_indicator_fields(indicator: Any) -> dict[str, Any]:
         if type(option) is not bool:
             raise ValueError(f"{name} must be a boolean, not a string or number.")
         normalized[name] = option
+    role = raw.get("evidence_role", "failure")
+    if not isinstance(role, str) or role not in {"failure", "review"}:
+        raise ValueError("evidence_role must be 'failure' or 'review'.")
+    normalized["evidence_role"] = role
     normalized["threshold"] = raw.get("threshold")
     if match == "output_length_over":
         threshold = normalized["threshold"]
@@ -67,3 +71,22 @@ def normalize_indicator_fields(indicator: Any) -> dict[str, Any]:
         except re.error as exc:
             raise ValueError("Invalid failure indicator regular expression.") from exc
     return normalized
+
+
+def validated_indicator_list(value: Any) -> list[Any]:
+    """Validate the original container before any list conversion.
+
+    Missing/null indicators retain the legacy empty-list meaning. False, zero,
+    strings and mappings are configuration errors, not an empty predicate list.
+    The returned shallow copy preserves author fields and legacy string entries.
+    """
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("failure_indicators must be a list.")
+    for index, indicator in enumerate(value, 1):
+        try:
+            normalize_indicator_fields(indicator)
+        except ValueError as exc:
+            raise ValueError(f"failure_indicators[{index}]: {exc}") from exc
+    return list(value)

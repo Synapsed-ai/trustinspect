@@ -2,6 +2,18 @@
 
 TrustInspect is an evidence-based testing tool. Generated reports and evidence artifacts may contain sensitive information, including prompts, model responses, screenshots, DOM snapshots, target URLs, generated dynamic tests, and target capability profiles.
 
+## Automatic error diagnostics
+
+When a Web UI test fails to execute, the scanner attempts to save a screenshot
+and a DOM snapshot locally and attaches their paths to the error observation.
+This diagnostic collection is automatic; no separate DOM opt-in is required by
+the current scanner. A snapshot may contain hidden fields and state that a
+screenshot does not show. DOM files use the `.html.txt` suffix and must be treated
+as untrusted diagnostic data, not opened as executable HTML. Failure to capture
+an artifact does not turn an execution error into a successful test.
+
+## Sharing evidence
+
 Before sharing reports or sample outputs, review them for:
 
 - credentials or API keys;
