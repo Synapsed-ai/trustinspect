@@ -36,7 +36,7 @@ from trustinspect.targets.profile import load_target_profile, save_target_profil
 from trustinspect.targets.profiler import build_profile_from_response, profile_target_via_web_ui
 from trustinspect.testcases.generator import generate_contextual_tests
 from trustinspect.dynamic.per_static import generate_dynamic_tests_for_static_suite
-from trustinspect.testcases.loader import save_test_cases_yaml, load_test_case_rows
+from trustinspect.testcases.loader import save_test_cases_yaml, load_test_cases_yaml
 from trustinspect.resources import builtin_file, builtin_directory
 from trustinspect.ui.terminal import TerminalUI
 from trustinspect.suites.registry import available_suites, resolve_suite_path
@@ -84,25 +84,8 @@ def _apply_suite_selection(args: argparse.Namespace, destination_attr: str) -> N
     print(f"[+] Using static test suite: {suite} -> {resolved}")
 
 def _load_test_cases(path: str | Path) -> list[TestCase]:
-    rows = load_test_case_rows(path)
-    test_cases: list[TestCase] = []
-    for idx, row in enumerate(rows, 1):
-        test_cases.append(
-            TestCase(
-                id=str(row.get("id") or f"TC-{idx:03d}"),
-                name=str(row.get("name") or "TrustInspect Test Case"),
-                category=str(row.get("category") or "Uncategorized"),
-                objective=str(row.get("objective") or row.get("expected_behavior") or "Execute TrustInspect test case and observe target behavior."),
-                payload=str(row.get("payload") or row.get("prompt") or ""),
-                expected_behavior=row.get("expected_behavior"),
-                failure_indicators=list(row.get("failure_indicators") or []),
-                mappings=dict(row.get("mappings") or {}),
-                metadata=dict(row.get("metadata") or {}),
-            )
-        )
-    return test_cases
-
-
+    """Use the same validated loader as library callers."""
+    return load_test_cases_yaml(path)
 
 
 
@@ -550,6 +533,11 @@ def _run_web_assessment(
 
 
 def cmd_scan_web(args: argparse.Namespace) -> None:
+    # Validate the original catalog before selector discovery or browser activity.
+    _apply_suite_selection(args, "test_cases")
+    if args.test_cases is None:
+        args.test_cases = str(builtin_file("examples/test_cases/owasp_light_full.yaml"))
+    test_cases = _load_test_cases(args.test_cases)
     input_selector, output_selector, frame_selector = _resolve_selectors(args)
     if not input_selector or not output_selector:
         raise SystemExit("scan-web requires --input-selector and --output-selector, unless --auto-selectors succeeds.")
@@ -567,10 +555,6 @@ def cmd_scan_web(args: argparse.Namespace) -> None:
     )
     ui.banner(version=_trustinspect_version(), license_name=args.license_name)
 
-    _apply_suite_selection(args, "test_cases")
-    if args.test_cases is None:
-        args.test_cases = str(builtin_file("examples/test_cases/owasp_light_full.yaml"))
-    test_cases = _load_test_cases(args.test_cases)
     test_cases = _limit_test_cases(test_cases, getattr(args, "max_tests", None), label="scan-web test cases")
     if not test_cases:
         raise SystemExit(f"No test cases found in {args.test_cases}")
@@ -607,6 +591,9 @@ def cmd_scan_web(args: argparse.Namespace) -> None:
 
 
 def cmd_adaptive_scan(args: argparse.Namespace) -> None:
+    # Fail invalid static catalogs before selector discovery or target profiling.
+    _apply_suite_selection(args, "base_test_cases")
+    baseline_tests_all = _load_test_cases(args.base_test_cases) if args.base_test_cases else []
     input_selector, output_selector, frame_selector = _resolve_selectors(args)
     if not input_selector or not output_selector:
         raise SystemExit("adaptive-scan requires --input-selector and --output-selector, unless --auto-selectors succeeds.")
@@ -624,7 +611,6 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
     )
     ui.banner(version=_trustinspect_version(), license_name=args.license_name)
 
-    _apply_suite_selection(args, "base_test_cases")
 
     target_id = args.target_id or _safe_target_id(args.target_url)
     profile_output = Path(args.profile_output or f"reports/{target_id}_profile.yaml")
@@ -675,9 +661,7 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
     # 3. Optional static baseline + dynamic generated tests.
     # Static tests are always executed. Dynamic tests are limited by
     # --max-dynamic-tests. Hidden legacy knobs are kept only for compatibility.
-    baseline_tests_all: list[TestCase] = []
     if args.base_test_cases:
-        baseline_tests_all = _load_test_cases(args.base_test_cases)
         # Advanced/backward-compatible hidden flag only. Normal users should not need it.
         baseline_tests_all = _limit_test_cases(
             baseline_tests_all,
@@ -805,6 +789,9 @@ def _generated_test_plan_from_dynamic_per_static(test_cases: list[TestCase]) -> 
 
 
 def cmd_adaptive_scan(args: argparse.Namespace) -> None:
+    # Fail invalid static catalogs before selector discovery or target profiling.
+    _apply_suite_selection(args, "base_test_cases")
+    baseline_tests_all = _load_test_cases(args.base_test_cases) if args.base_test_cases else []
     input_selector, output_selector, frame_selector = _resolve_selectors(args)
     if not input_selector or not output_selector:
         raise SystemExit("adaptive-scan requires --input-selector and --output-selector, unless --auto-selectors succeeds.")
@@ -821,9 +808,6 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
         response_chars=args.response_chars,
     )
     ui.banner(version=_trustinspect_version(), license_name=args.license_name)
-
-    if "_apply_suite_selection" in globals():
-        _apply_suite_selection(args, "base_test_cases")
 
     target_id = args.target_id or _safe_target_id(args.target_url)
     profile_output = Path(args.profile_output or f"reports/{target_id}_profile.yaml")
@@ -849,9 +833,7 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
         print(f"[+] Target profile written to {profile_output}")
 
     # 2. Load static tests. Static tests are always executed.
-    baseline_tests_all: list[TestCase] = []
     if args.base_test_cases:
-        baseline_tests_all = _load_test_cases(args.base_test_cases)
         _mark_test_origin(baseline_tests_all, "baseline")
         print(f"[+] Loaded {len(baseline_tests_all)} static tests: {args.base_test_cases}")
     else:

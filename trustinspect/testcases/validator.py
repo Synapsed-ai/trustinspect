@@ -37,29 +37,47 @@ class ValidationResult:
 
 def _load_yaml(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return yaml.safe_load(f)
 
 
-def _extract_test_cases(data: Any) -> List[Dict[str, Any]]:
+def extract_test_cases(data: Any) -> List[Dict[str, Any]]:
+    """Read supported envelopes without discarding malformed rows."""
+    if data is None:
+        return []
     if isinstance(data, list):
-        return [x for x in data if isinstance(x, dict)]
-    if isinstance(data, dict):
-        if isinstance(data.get("test_cases"), list):
-            return [x for x in data["test_cases"] if isinstance(x, dict)]
-        if isinstance(data.get("tests"), list):
-            return [x for x in data["tests"] if isinstance(x, dict)]
-        # Single test case YAML
-        if any(k in data for k in ("id", "test_id", "prompt", "payload")):
-            return [data]
-    return []
+        rows = data
+    elif isinstance(data, dict):
+        envelopes = [key for key in ("test_cases", "tests") if key in data]
+        if len(envelopes) > 1:
+            raise ValueError("Use either 'test_cases' or 'tests', not both.")
+        if envelopes:
+            rows = data[envelopes[0]]
+        elif any(key in data for key in ("id", "test_id", "prompt", "payload")):
+            rows = [data]
+        else:
+            raise ValueError("Expected a test_cases/tests list or a single test case.")
+    else:
+        raise ValueError("Test catalog must be a list or mapping.")
+    if not isinstance(rows, list):
+        raise ValueError("test_cases/tests must be a list of mappings.")
+    for index, row in enumerate(rows, 1):
+        if not isinstance(row, dict):
+            raise ValueError(f"test[{index}] must be a mapping.")
+    return rows
 
 
-def _get_id(tc: Dict[str, Any]) -> str:
+def catalog_id(tc: Dict[str, Any]) -> str:
     return str(tc.get("id") or tc.get("test_id") or "<missing-id>")
 
 
-def _get_prompt(tc: Dict[str, Any]) -> str:
-    return str(tc.get("prompt") or tc.get("payload") or "")
+def catalog_prompt(tc: Dict[str, Any]) -> str:
+    return str(tc.get("payload") or tc.get("prompt") or "")
+
+
+# Compatibility names; all readers use the same envelope and aliases.
+_extract_test_cases = extract_test_cases
+_get_id = catalog_id
+_get_prompt = catalog_prompt
 
 
 def _normalize_indicator(indicator: Any) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
@@ -69,15 +87,24 @@ def _normalize_indicator(indicator: Any) -> Tuple[Optional[str], Optional[str], 
 
 def validate_test_catalog(path: str | Path) -> ValidationResult:
     path = Path(path)
-    result = ValidationResult(path=path)
-
     try:
         data = _load_yaml(path)
     except Exception as exc:
+        result = ValidationResult(path=path)
         result.add("ERROR", str(path), f"YAML could not be parsed: {exc}")
         return result
+    return validate_catalog_data(data, path)
 
-    test_cases = _extract_test_cases(data)
+
+def validate_catalog_data(data: Any, path: str | Path) -> ValidationResult:
+    """Validate parsed input once, before a caller contacts the target."""
+    path = Path(path)
+    result = ValidationResult(path=path)
+    try:
+        test_cases = extract_test_cases(data)
+    except ValueError as exc:
+        result.add("ERROR", str(path), str(exc))
+        return result
     if not test_cases:
         result.add("ERROR", str(path), "No test cases found. Expected 'test_cases:' list, 'tests:' list, or a single test case.")
         return result
@@ -101,6 +128,17 @@ def validate_test_catalog(path: str | Path) -> ValidationResult:
         if not tc.get("category"):
             result.add("WARNING", f"{loc}:{test_id}", "Missing category.")
 
+        for key in ("payload", "prompt"):
+            if key in tc and not isinstance(tc[key], str):
+                result.add("ERROR", f"{loc}:{test_id}", f"{key} must be a string.")
+        if tc.get("payload") and tc.get("prompt") and tc["payload"] != tc["prompt"]:
+            result.add("ERROR", f"{loc}:{test_id}", "Conflicting payload and prompt aliases.")
+        if tc.get("id") and tc.get("test_id") and str(tc["id"]) != str(tc["test_id"]):
+            result.add("ERROR", loc, "Conflicting id and test_id aliases.")
+        for key in ("metadata", "mappings"):
+            if tc.get(key) is not None and not isinstance(tc[key], dict):
+                result.add("ERROR", f"{loc}:{test_id}", f"{key} must be a mapping.")
+
         prompt = _get_prompt(tc)
         if not prompt.strip():
             result.add("ERROR", f"{loc}:{test_id}", "Prompt/payload is empty. The scanner would send an empty message.")
@@ -111,7 +149,9 @@ def validate_test_catalog(path: str | Path) -> ValidationResult:
         if not tc.get("expected_behavior"):
             result.add("WARNING", f"{loc}:{test_id}", "Missing expected_behavior. Evidence analysis will be less explainable.")
 
-        failure_indicators = tc.get("failure_indicators") or []
+        failure_indicators = tc.get("failure_indicators")
+        if failure_indicators is None:
+            failure_indicators = []
         if not isinstance(failure_indicators, list):
             result.add("ERROR", f"{loc}:{test_id}", "failure_indicators must be a list.")
             failure_indicators = []
@@ -134,8 +174,9 @@ def validate_test_catalog(path: str | Path) -> ValidationResult:
                     "Sentinel indicator uses broad 'contains'. Prefer 'ends_with_unquoted' to avoid mention-vs-execution false positives.",
                 )
 
-        source = tc.get("source") or (tc.get("metadata") or {}).get("source")
-        if source and source not in {"static", "baseline", "dynamic", "adaptive"}:
+        meta = tc.get("metadata") if isinstance(tc.get("metadata"), dict) else {}
+        source = tc.get("source") or meta.get("source")
+        if source and (not isinstance(source, str) or source not in {"static", "baseline", "dynamic", "adaptive"}):
             result.add("WARNING", f"{loc}:{test_id}", f"Unusual source value: {source}")
 
     return result
