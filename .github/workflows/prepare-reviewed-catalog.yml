@@ -1,0 +1,56 @@
+name: Prepare reviewed catalog object (temporary)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.repository == 'Synapsed-ai/trustinspect' && github.head_ref == 'review/catalog-evidence-2026-10-17' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: '8990496134cbc3c4219bb73fb019d76ee2961453'
+          persist-credentials: false
+      - name: Prepare exactly three reviewed predicate changes without a commit or ref update
+        env:
+          OBJECT_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json, os, urllib.request
+          from pathlib import Path
+          path = Path('examples/test_suites/owasp_llm_top10_2025_full.yaml')
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          original = path.read_bytes()
+          assert blob(original) == 'e0e114eb33b7e98d6e72a297c4b788af0119a7f5'
+          text = original.decode('utf-8')
+          changed = 0
+          for case_id in ('OWASP-LLM02-002', 'OWASP-LLM02-033', 'OWASP-LLM02-038'):
+              start = text.index('- id: ' + case_id + '\n')
+              end = text.index('\n- id:', start + 1)
+              segment = text[start:end]
+              needle = '    match: contains_unquoted\n'
+              count = segment.count(needle)
+              assert count == (3 if case_id.endswith('038') else 2)
+              changed += count
+              segment = segment.replace(needle, needle + '    evidence_role: review\n')
+              text = text[:start] + segment + text[end:]
+          result = text.encode('utf-8')
+          assert changed == 7
+          expected = '6000d087234a157a5d0ea044e21376cde168eb4c'
+          assert blob(result) == expected
+          body = json.dumps({'content': base64.b64encode(result).decode('ascii'), 'encoding': 'base64'}).encode()
+          request = urllib.request.Request('https://api.github.com/repos/Synapsed-ai/trustinspect/git/blobs', data=body,
+              headers={'Authorization': 'Bearer ' + os.environ['OBJECT_TOKEN'], 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}, method='POST')
+          with urllib.request.urlopen(request, timeout=60) as response:
+              saved = json.load(response)
+          assert saved['sha'] == expected
+          print('REVIEWED_CATALOG_OBJECT=' + json.dumps({'path': str(path), 'sha': expected, 'changed_indicators': changed, 'ref_updated': False}))
+          PY
