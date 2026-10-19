@@ -25,7 +25,7 @@ examples/
   dynamic_templates/          # contextual generation templates
   sample-reports/README.md    # instructions to generate current examples
 suites/owasp/                 # authoritative AITG light/full catalogs
-targets/builtin/              # bundled target definitions
+targets/builtin/              # bundled target definitions (local demo only)
 demos/trustinspect-demo-chatbot/
 tests/                       # unit and contract tests
   browser/                   # opt-in real local-browser regressions
@@ -34,7 +34,7 @@ tools/                       # release dependency/history audits and media prepa
 .github/workflows/           # source, installed-package and browser checks
 ```
 
-`setup.py` copies the 18 allowlisted runtime data files into `trustinspect/_data/`
+`setup.py` copies the 16 allowlisted runtime data files into `trustinspect/_data/`
 at build time. The input files remain authoritative; generated copies are not
 committed. The packaging workflow rebuilds a wheel from its source distribution
 and verifies installed resources from outside the checkout. See

@@ -14,7 +14,5 @@
   "examples/dynamic_templates/06_unsafe_output_echo.yaml",
   "examples/dynamic_templates/07_resource_exhaustion.yaml",
   "examples/dynamic_templates/08_roleplay_policy_override.yaml",
-  "targets/builtin/lakera_gandalf_baseline.yaml",
-  "targets/builtin/promptairlines.yaml",
   "targets/builtin/trustinspect_demo_chatbot.yaml"
 ]

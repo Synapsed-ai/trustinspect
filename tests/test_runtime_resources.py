@@ -111,7 +111,7 @@ def test_builtin_disable_uses_workspace_override_without_mutation(tmp_path, monk
     monkeypatch.chdir(tmp_path)
     local = tmp_path / "overrides"
     registry = load_target_registry(local_dir=local)
-    original = registry.get("promptairlines")
+    original = registry.get("trustinspect-demo-chatbot")
     assert original is not None
     src = Path(original.source_path)
     before = src.read_bytes()
@@ -148,7 +148,7 @@ def test_cli_default_and_adaptive_plan_work_outside_checkout(tmp_path, monkeypat
 def test_target_state_cannot_write_inside_package(tmp_path, monkeypatch):
     import trustinspect.targets.registry as registry_module
     monkeypatch.chdir(tmp_path)
-    target = load_target_registry().get("promptairlines")
+    target = load_target_registry().get("trustinspect-demo-chatbot")
     forbidden = Path(registry_module.__file__).resolve().parents[1] / "forbidden-test-state"
     with pytest.raises(ValueError):
         save_local_target(target, local_dir=forbidden)
@@ -177,7 +177,7 @@ def test_archive_does_not_overwrite_existing_destination(tmp_path, monkeypatch):
     from types import SimpleNamespace
     import trustinspect.targets.registry as registry_module
     monkeypatch.chdir(tmp_path)
-    target = load_target_registry().get("promptairlines")
+    target = load_target_registry().get("trustinspect-demo-chatbot")
     source = Path(target.source_path)
     original = source.read_bytes()
     monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(now=lambda tz=None: SimpleNamespace(strftime=lambda fmt: "fixed")))
@@ -195,7 +195,7 @@ def test_archive_rejects_symlink_destination(tmp_path, monkeypatch):
     from types import SimpleNamespace
     import trustinspect.targets.registry as registry_module
     monkeypatch.chdir(tmp_path)
-    target = load_target_registry().get("promptairlines")
+    target = load_target_registry().get("trustinspect-demo-chatbot")
     monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(now=lambda tz=None: SimpleNamespace(strftime=lambda fmt: "fixed")))
     destination = tmp_path / "archive" / "fixed" / target.source_kind / Path(target.source_path).name
     destination.parent.mkdir(parents=True)

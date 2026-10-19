@@ -11,6 +11,10 @@ targets/disabled/  archived targets hidden from the launcher
 ## Built-in targets
 
 Built-in targets should be stable definitions maintained by the project.
+Only targets the project controls are bundled; currently that is the local
+demo chatbot (`trustinspect-demo-chatbot`). Third-party services are not shipped
+as built-in targets: calibrate them as local targets, and only when you are
+authorized to test them.
 
 Recommended statuses:
 
@@ -46,12 +50,12 @@ They are not removed permanently and can be restored.
 ## Minimal target schema
 
 ```yaml
-id: promptairlines
-name: PromptAirlines
-url: https://promptairlines.com/?utm_source=trustinspect
+id: my-assistant
+name: My Assistant (staging)
+url: https://assistant.staging.example.test/
 type: web-ui
 status: ready
-category: public_ai_challenge
+category: internal_chatbot
 input_selector: "#chatInput"
 output_selector: "#chat-content .bot-message p"
 send_selector: null
@@ -59,5 +63,5 @@ frame_selector: null
 risk_focus:
   - prompt_manipulation
   - hidden_instruction_following
-notes: Public AI security challenge target. Selectors may change.
+notes: Internal staging assistant. Selectors may change between releases.
 ```
