@@ -1,5 +1,12 @@
 # TrustInspect Demo Quickstart
 
+These steps use the bundled local demo chatbot. Start it first in a separate
+terminal:
+
+```bash
+demos/trustinspect-demo-chatbot/run_vulnerable.sh
+```
+
 ## 1. Validate templates and catalogs
 
 ```bash
@@ -11,10 +18,11 @@ python -m trustinspect.testcases.validator examples/test_cases/trustinspect_base
 
 ```bash
 trustinspect profile-target \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
-  --output profiles/promptairlines.yaml \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
+  --output profiles/demo_chatbot.yaml \
   --headless
 ```
 
@@ -22,21 +30,22 @@ trustinspect profile-target \
 
 ```bash
 python -m trustinspect.dynamic.engine \
-  --target-profile profiles/promptairlines.yaml \
+  --target-profile profiles/demo_chatbot.yaml \
   --template-dir examples/dynamic_templates \
   --max-dynamic-tests 4 \
-  --output generated_tests/promptairlines_dynamic.yaml
+  --output generated_tests/demo_chatbot_dynamic.yaml
 ```
 
 ## 4. Run dynamic-only scan
 
 ```bash
 trustinspect scan-web \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
-  --test-cases generated_tests/promptairlines_dynamic.yaml \
-  --output reports/promptairlines_dynamic_only.html \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
+  --test-cases generated_tests/demo_chatbot_dynamic.yaml \
+  --output reports/demo_chatbot_dynamic_only.html \
   --headless \
   --open \
   --response-chars 900
@@ -46,12 +55,13 @@ trustinspect scan-web \
 
 ```bash
 trustinspect adaptive-scan \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
   --base-test-cases examples/test_cases/trustinspect_baseline.yaml \
   --max-dynamic-tests 4 \
-  --output reports/promptairlines_adaptive_dynamic4.html \
+  --output reports/demo_chatbot_adaptive_dynamic4.html \
   --headless \
   --open \
   --response-chars 900

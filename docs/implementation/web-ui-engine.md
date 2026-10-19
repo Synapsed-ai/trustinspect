@@ -25,7 +25,7 @@ Selector discovery:
 
 ```bash
 trustinspect detect-selectors \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --wait-time 15
 ```
 
@@ -33,11 +33,12 @@ Web UI scan:
 
 ```bash
 trustinspect scan-web \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div:last-child span > div > span > p" \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
   --test-cases examples/test_cases/owasp_light_full.yaml \
-  --output reports/promptairlines.html \
+  --output reports/demo_chatbot.html \
   --headless \
   --open
 ```
