@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 import re
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -260,7 +260,7 @@ def archive_target(target: TargetDefinition, disabled_dir: str | Path = "targets
     if src.is_symlink():
         raise ValueError("Target source file must not be a symlink")
 
-    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     kind = target.source_kind or "unknown"
     dest_dir = _workspace_directory(_workspace_directory(disabled_dir) / stamp / kind)
     dest_dir.mkdir(parents=True, exist_ok=True)

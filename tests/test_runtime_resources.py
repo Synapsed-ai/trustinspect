@@ -180,7 +180,7 @@ def test_archive_does_not_overwrite_existing_destination(tmp_path, monkeypatch):
     target = load_target_registry().get("promptairlines")
     source = Path(target.source_path)
     original = source.read_bytes()
-    monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(utcnow=lambda: SimpleNamespace(strftime=lambda fmt: "fixed")))
+    monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(now=lambda tz=None: SimpleNamespace(strftime=lambda fmt: "fixed")))
     destination = tmp_path / "archive" / "fixed" / target.source_kind / source.name
     destination.parent.mkdir(parents=True)
     destination.write_text("preserved archive", encoding="utf-8")
@@ -196,7 +196,7 @@ def test_archive_rejects_symlink_destination(tmp_path, monkeypatch):
     import trustinspect.targets.registry as registry_module
     monkeypatch.chdir(tmp_path)
     target = load_target_registry().get("promptairlines")
-    monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(utcnow=lambda: SimpleNamespace(strftime=lambda fmt: "fixed")))
+    monkeypatch.setattr(registry_module, "datetime", SimpleNamespace(now=lambda tz=None: SimpleNamespace(strftime=lambda fmt: "fixed")))
     destination = tmp_path / "archive" / "fixed" / target.source_kind / Path(target.source_path).name
     destination.parent.mkdir(parents=True)
     victim = tmp_path / "unrelated.yaml"

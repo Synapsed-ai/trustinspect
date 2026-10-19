@@ -29,7 +29,8 @@ targets/builtin/              # bundled target definitions
 demos/trustinspect-demo-chatbot/
 tests/                       # unit and contract tests
   browser/                   # opt-in real local-browser regressions
-scripts/maintenance/         # validation utilities and legacy migration helpers
+scripts/maintenance/         # release, packaging and runtime-guard validation utilities
+tools/                       # release dependency/history audits and media preparation
 .github/workflows/           # source, installed-package and browser checks
 ```
 
@@ -48,9 +49,7 @@ Old screenshot/report outputs have been retired from the current tree, not from
 Git history. The browser workflow provides short-lived evidence tied to the
 commit under test. The local demo uses deterministic responses, not a real LLM.
 
-## Changes that are not part of this cleanup
+## Changing the layout
 
-No catalog migration or automatic deletion of legacy maintenance scripts is
-performed here. Earlier layout proposals are not instructions to run a migration.
 Moving resource inputs requires a coordinated update of the allowlist, build,
 registry, examples and tests. API and agent-trace adapters remain roadmap items.

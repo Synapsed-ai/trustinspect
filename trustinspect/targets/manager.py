@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional
 
@@ -85,7 +85,7 @@ def disable_target_by_id(
     if not files:
         raise FileNotFoundError(f"No target YAML file found for target id: {target_id}")
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     safe_id = "".join(c if c.isalnum() or c in "-_" else "-" for c in target_id).strip("-") or "target"
     dest_dir = Path(disabled_root) / f"{timestamp}_{safe_id}"
     dest_dir.mkdir(parents=True, exist_ok=True)
