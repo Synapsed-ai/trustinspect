@@ -18,6 +18,14 @@ The repository is already public. This checklist governs a versioned release, no
 - Verify the three retained video links and playback. The two approved image label edits must not alter counters or classifications.
 - Confirm the scope and limitations in the release notes. API, native RAG trace and agent trace adapters are not included in this alpha.
 
+## Maintainer confirmations — 23 October 2026
+
+Matteo Meucci confirmed that the security-mailbox operational check and playback of the three demo videos are OK. These two gates are recorded as maintainer-confirmed, not independently retested by this repository update.
+
+He also confirmed that the project materials covered by the provenance review were created by Synapsed. See the dated confirmation in the provenance inventory. Third-party dependency licenses and notices remain separate from that authorship statement.
+
+These confirmations do not approve publication or transfer the 17 October CI results to a changed candidate. Aligning the Python package version requires new candidate artifacts and checksums, with applicable checks on that candidate.
+
 ## Human-controlled publication
 
 Review the final diff and explicitly approve merge. After merge, verify the post-merge candidate again and identify which recorded artifacts belong to that exact tree. Agree the package version and matching tag before creating either. Prepare release notes and an artifact checksum manifest; publish only with explicit maintainer approval. Do not upload to PyPI, announce a stable release, enable auto-merge or rewrite history as a side effect.
