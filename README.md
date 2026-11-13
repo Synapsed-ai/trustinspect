@@ -11,7 +11,7 @@ It is designed for AI application assurance, not traditional web application sec
 
 ## Demo Videos
 
-The following videos demonstrate TrustInspect in action against PromptAirlines, a public AI security challenge operated by a third party (Wiz), to showcase OWASP AI Testing Guide aligned testing workflows. The recordings show an earlier build; PromptAirlines is not bundled as a target. To reproduce these workflows, use the local demo chatbot below, or calibrate your own target that you are authorized to test.
+The following videos demonstrate TrustInspect in action against PromptAirlines, a public AI security challenge operated by a third party (Wiz), to showcase OWASP AI Testing Guide aligned testing workflows. The recordings show an earlier build. PromptAirlines is included as an example built-in target (see `examples/commands/promptairlines_*.sh`); you can also reproduce these workflows against the local demo chatbot below.
 
 | Video | Description |
 |---|---|
@@ -263,7 +263,7 @@ For reproducible checks of the current code, see the [local-browser regression g
 
 Use TrustInspect only on systems you own, operate, or are authorized to test.
 
-The only built-in target is the local demo chatbot. Third-party services, including public AI challenges, are not bundled; add them as local targets only where their terms or owners permit automated testing. They may change, rate-limit, or require selector recalibration.
+The built-in targets are the local demo chatbot and PromptAirlines, a public AI security challenge operated by a third party and included for research and demonstration convenience. Other third-party services are not bundled; add them as local targets only where their terms or owners permit automated testing. Third-party targets may change, rate-limit, or require selector recalibration.
 
 ---
 

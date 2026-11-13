@@ -1,0 +1,22 @@
+id: promptairlines
+name: PromptAirlines
+type: web-ui
+category: public_ai_challenge
+status: ready
+url: "https://promptairlines.com/?utm_source=trustinspect"
+input_selector: "#chatInput"
+output_selector: "#chat-content > div.inner-content > div span > div > span > p"
+send_selector: null
+frame_selector: null
+profile_strategy: standard_chat
+supported_suites:
+  - trustinspect-baseline
+  - owasp-llm-top10-2025-light
+  - owasp-llm-top10-2025-full
+recommended_dynamic_tests_per_static: 1
+risk_focus:
+  - prompt_manipulation
+  - sensitive_data_exposure
+  - hidden_instruction_following
+  - unauthorized_action_request
+notes: "Public AI challenge target. Selectors are currently calibrated for TrustInspect Web UI scanning."

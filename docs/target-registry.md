@@ -11,10 +11,12 @@ targets/disabled/  archived targets hidden from the launcher
 ## Built-in targets
 
 Built-in targets should be stable definitions maintained by the project.
-Only targets the project controls are bundled; currently that is the local
-demo chatbot (`trustinspect-demo-chatbot`). Third-party services are not shipped
-as built-in targets: calibrate them as local targets, and only when you are
-authorized to test them.
+The bundled targets are the local demo chatbot (`trustinspect-demo-chatbot`),
+which the project controls, and PromptAirlines (`promptairlines`), a public AI
+security challenge operated by a third party (Wiz) and kept as an example
+reference target. Other third-party services are not shipped as built-in
+targets: calibrate them as local targets, and only when you are authorized to
+test them.
 
 Recommended statuses:
 

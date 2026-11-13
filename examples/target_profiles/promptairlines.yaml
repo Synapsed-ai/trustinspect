@@ -1,0 +1,11 @@
+id: promptairlines
+name: PromptAirlines by Wiz
+url: https://promptairlines.com/?utm_source=trustinspect
+target_type: public-ai-challenge
+scanner: web-ui
+selectors:
+  input_selector: "#chatInput"
+  output_selector: "#chat-content > div.inner-content > div:last-child span > div > span > p"
+notes:
+  - Public AI-specific challenge used as an international reference target.
+  - Use only safe, non-destructive, educational payloads.

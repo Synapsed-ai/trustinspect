@@ -48,7 +48,7 @@ for relative, expected in expectations.items():
     actual = hashlib.sha256((installed.parent / relative).read_bytes()).hexdigest()
     assert actual == expected, relative
 
-assert len(resources.RESOURCE_FILES) == 16
+assert len(resources.RESOURCE_FILES) == 17
 for key in resources.RESOURCE_FILES:
     assert resources.builtin_file(key).is_relative_to(installed)
 counts = {sid: len(load_test_case_rows(resolve_suite_path(sid))) for sid in SUITES}
@@ -80,7 +80,7 @@ variants = generate_dynamic_tests_for_static_suite(static_tests=static, target_p
 assert variants
 
 registry = load_target_registry()
-assert len(registry.list()) == 1
+assert len(registry.list()) == 2
 original = registry.get("trustinspect-demo-chatbot")
 assert original
 source = Path(original.source_path)

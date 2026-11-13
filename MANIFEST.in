@@ -15,4 +15,5 @@ include examples/dynamic_templates/05_domain_boundary.yaml
 include examples/dynamic_templates/06_unsafe_output_echo.yaml
 include examples/dynamic_templates/07_resource_exhaustion.yaml
 include examples/dynamic_templates/08_roleplay_policy_override.yaml
+include targets/builtin/promptairlines.yaml
 include targets/builtin/trustinspect_demo_chatbot.yaml

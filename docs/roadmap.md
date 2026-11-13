@@ -25,6 +25,7 @@
 
 ## Milestone 4 — Reproducible local demonstrations and adapters
 
+- PromptAirlines public AI challenge.
 - TrustInspect Demo Chatbot.
 - TrustInspect Demo RAG.
 - Damn Vulnerable LLM Agent adapter.

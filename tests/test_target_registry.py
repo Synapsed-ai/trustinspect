@@ -10,7 +10,7 @@ def test_registry_loads_builtin_targets():
     targets = registry.list()
     ids = {t.id for t in targets}
 
-    assert ids == {"trustinspect-demo-chatbot"}
+    assert ids == {"trustinspect-demo-chatbot", "promptairlines"}
 
 
 def test_demo_chatbot_target_is_ready():
@@ -19,6 +19,17 @@ def test_demo_chatbot_target_is_ready():
 
     assert target is not None
     assert target.url.startswith("http://127.0.0.1")
+    assert target.input_selector
+    assert target.output_selector
+    assert target.is_ready
+
+
+def test_promptairlines_target_is_ready():
+    registry = load_target_registry(builtins_dir="targets/builtin", local_dir="__missing__")
+    target = registry.get("promptairlines")
+
+    assert target is not None
+    assert target.url.startswith("https://promptairlines.com")
     assert target.input_selector
     assert target.output_selector
     assert target.is_ready
