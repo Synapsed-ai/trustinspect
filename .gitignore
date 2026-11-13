@@ -1,19 +1,20 @@
-
-# TrustInspect generated outputs
+# TrustInspect runtime outputs
 reports/
 generated_tests/
 profiles/
 _archive/
+
+# Local target calibration
 targets/local/*.yaml
 !targets/local/.gitkeep
-*_patch/
-patch_*.py
-trustinspect_*_patch*/
+targets/disabled/
 
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
+dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -23,38 +24,19 @@ __pycache__/
 venv/
 env/
 
-# TrustInspect runtime outputs
-reports/
-profiles/
-generated_tests/
-_archive/
-
-# Local target calibration
-targets/local/*.yaml
-targets/disabled/
-
 # OS / editor
 .DS_Store
 .vscode/
 .idea/
 
-# Temporary / patch artifacts
-*.bak
-*.bak-*
+# Temporary / patch / backup artifacts
 *.zip
-README_*_PATCH.md
-README_*_FIX.md
-patch_*.py
-*_patch/
-
-# Backup / migration artifacts
 *.bak
 *.bak-*
 *.bak_*
-*.before_*.bak
 *.orig
 *.rej
-README_*_PATCH.md
-README_*_FIX.md
 patch_*.py
 *_patch/
+README_*_PATCH.md
+README_*_FIX.md

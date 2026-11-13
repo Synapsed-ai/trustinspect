@@ -318,11 +318,11 @@ def _resolve_selectors(args: argparse.Namespace) -> tuple[str | None, str | None
 
 def build_demo_assessment() -> Assessment:
     target = Target(
-        id="promptairlines",
-        name="PromptAirlines demo target",
-        url="https://promptairlines.com/",
-        target_type="public-ai-challenge",
-        metadata={"demo_role": "public AI-specific challenge"},
+        id="trustinspect-demo-chatbot",
+        name="TrustInspect Demo Chatbot local",
+        url="http://127.0.0.1:8080/",
+        target_type="controlled-demo-target",
+        metadata={"demo_role": "controlled local demo target"},
     )
 
     test_case = TestCase(

@@ -11,7 +11,7 @@ It is designed for AI application assurance, not traditional web application sec
 
 ## Demo Videos
 
-The following videos demonstrate TrustInspect in action against PromptAirlines, a controlled vulnerable AI application used to showcase OWASP AI Testing Guide aligned testing workflows.
+The following videos demonstrate TrustInspect in action against PromptAirlines, a public AI security challenge operated by a third party (Wiz), to showcase OWASP AI Testing Guide aligned testing workflows. The recordings show an earlier build. PromptAirlines is included as an example built-in target (see `examples/commands/promptairlines_*.sh`); you can also reproduce these workflows against the local demo chatbot below.
 
 | Video | Description |
 |---|---|
@@ -65,7 +65,7 @@ Supported capabilities include:
 
 Known limitations:
 
-- public AI challenge targets may change their UI and require selector recalibration;
+- third-party targets may change their UI and require selector recalibration;
 - full suites can be slow;
 - dynamic generation is deterministic/template-based;
 - RAG/vector-store adapters, agent trace adapters, and API adapters are roadmap items;
@@ -263,7 +263,7 @@ For reproducible checks of the current code, see the [local-browser regression g
 
 Use TrustInspect only on systems you own, operate, or are authorized to test.
 
-Public AI challenge targets included in the registry are provided for research and demonstration convenience. They may change, rate-limit, or require selector recalibration.
+The built-in targets are the local demo chatbot and PromptAirlines, a public AI security challenge operated by a third party and included for research and demonstration convenience. Other third-party services are not bundled; add them as local targets only where their terms or owners permit automated testing. Third-party targets may change, rate-limit, or require selector recalibration.
 
 ---
 
@@ -284,4 +284,4 @@ TrustInspect reports and evidence files may contain sensitive information collec
 
 Review generated reports and evidence artifacts before sharing them outside the assessment team. TrustInspect does not upload reports or evidence by default; generated artifacts are stored locally in the output path selected by the tester.
 
-Use TrustInspect only against systems you own, operate, or are explicitly authorized to test. Public AI challenge targets may change over time and may require selector calibration.
+Use TrustInspect only against systems you own, operate, or are explicitly authorized to test.

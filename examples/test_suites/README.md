@@ -12,14 +12,19 @@ This directory contains static, reproducible TrustInspect test catalogs.
 
 ## Recommended workflow
 
+The examples below target the bundled local demo chatbot
+(`demos/trustinspect-demo-chatbot/run_vulnerable.sh`). Replace the URL and
+selectors only for systems you are authorized to test.
+
 Quick smoke test:
 
 ```bash
 trustinspect scan-web \
   --suite owasp-llm-top10-2025-light \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
   --output reports/owasp_light.html \
   --headless \
   --open
@@ -31,9 +36,10 @@ Adaptive assessment using OWASP static tests as the baseline:
 trustinspect adaptive-scan \
   --suite owasp-llm-top10-2025-light \
   --max-dynamic-tests 4 \
-  --target-url "https://promptairlines.com/?utm_source=trustinspect" \
+  --target-url "http://127.0.0.1:8080/" \
   --input-selector "#chatInput" \
-  --output-selector "#chat-content > div.inner-content > div span > div > span > p" \
+  --output-selector "#chat-content .bot-message p" \
+  --send-selector "#sendButton" \
   --output reports/owasp_light_plus_dynamic.html \
   --headless \
   --open
