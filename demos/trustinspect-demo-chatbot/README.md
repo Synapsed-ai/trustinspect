@@ -46,6 +46,28 @@ The same test plan should produce materially fewer findings:
 - refuses unsafe output echo;
 - applies bounded output behavior.
 
+## First-time installation and cross-platform startup
+
+Start with the [from-zero installation guide](../../docs/installation.md). It includes Python and Chrome installation, downloading the source without Git, Windows PowerShell commands, and the complete two-terminal static/hardened/adaptive walkthrough.
+
+After that setup, from the repository root, the portable server entry point is:
+
+macOS/Linux:
+
+```bash
+./.venv/bin/python demos/trustinspect-demo-chatbot/app/main.py --mode vulnerable --host 127.0.0.1 --port 8080
+```
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe demos/trustinspect-demo-chatbot/app/main.py --mode vulnerable --host 127.0.0.1 --port 8080
+```
+
+Leave this terminal running and scan from a second terminal. Stop it with Ctrl+C before restarting with `--mode hardened`; use a different report filename for the comparison. No separate Python dependencies, AI API key or model download are required by the demo server itself.
+
+The shell-script examples below are **optional macOS/Linux shortcuts for an already configured checkout**. They are not Windows commands or a first-time installation procedure. For the direct Python route, no executable permission on `.sh` files is needed.
+
 ## Run vulnerable mode
 
 Terminal 1:
