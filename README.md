@@ -123,63 +123,106 @@ Observations are sorted by criticality and include expandable prompt/response ev
 
 ## Installation
 
-Run the following from a checkout of this repository. See the
-[installation guide](docs/installation.md) for wheel and platform details.
+**First time, with no Python or Git installed? Start with the [from-zero installation guide](docs/installation.md).** It covers macOS, Windows and Ubuntu/Debian, including Python, Google Chrome, downloading the project and opening your first report.
+
+You need **Python 3.10+**, **Google Chrome** and an internet connection for the initial package/driver downloads. The guide uses standard Python **3.13** for a new macOS/Windows installation. Git, Homebrew, Docker, an AI API key and a paid model account are **not required** for the local demo. See the guide for the distinction between declared support and the CI-tested platform/Python combinations.
+
+Download the project from **Code → Download ZIP**, extract it, and move the folder **containing `pyproject.toml`** into your home folder, named `trustinspect`. Do not overwrite an existing checkout. Git users can clone instead; both routes are explained in the guide.
+
+After installing the prerequisites, run the block for your operating system **one command at a time**. Stop if a command fails.
+
+**macOS — Terminal**
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+cd "$HOME/trustinspect"
+python3.13 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install .
+./.venv/bin/trustinspect --help
 ```
 
-Selenium and the driver-manager dependency are installed with the project.
-Web UI scans also require a compatible local browser and driver.
-Do not disable the browser sandbox to work around setup problems.
+**Windows — PowerShell**
+
+```powershell
+Set-Location "$HOME\trustinspect"
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install .
+.\.venv\Scripts\trustinspect.exe --help
+```
+
+**Ubuntu/Debian — Terminal**
+
+```bash
+cd "$HOME/trustinspect"
+python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install .
+./.venv/bin/trustinspect --help
+```
+
+These commands deliberately use the executables inside `.venv`: you do not need to activate the environment, change PowerShell execution policy or install packages into system Python. Selenium and `webdriver-manager` are installed with TrustInspect; Chrome must also be installed. The scanner uses `webdriver-manager` to obtain ChromeDriver on first use. Do not disable TLS verification or the browser sandbox to bypass setup errors.
 
 ---
 
 ## Quick start: local vulnerable demo
 
-Start the local vulnerable target:
+The local demo is deterministic: it does **not** call a real LLM or require an API key. Complete installation first, then open **two terminal windows**. Both must start in the `trustinspect` folder.
+
+**Terminal 1 — start the target and leave this terminal running.**
+
+macOS/Linux:
 
 ```bash
-cd demos/trustinspect-demo-chatbot
-./run_vulnerable.sh
+cd "$HOME/trustinspect"
+./.venv/bin/python demos/trustinspect-demo-chatbot/app/main.py --mode vulnerable --host 127.0.0.1 --port 8080
 ```
 
-In a second terminal:
+Windows PowerShell:
+
+```powershell
+Set-Location "$HOME\trustinspect"
+.\.venv\Scripts\python.exe demos/trustinspect-demo-chatbot/app/main.py --mode vulnerable --host 127.0.0.1 --port 8080
+```
+
+Open `http://127.0.0.1:8080/` in Chrome. You should see the demo chatbot in **VULNERABLE** mode. Keep the server bound to `127.0.0.1`; it is a deliberately vulnerable local test target, not a public service.
+
+**Terminal 2 — run a first static scan.** Each scan below is a single command, even if your browser wraps it across lines.
+
+macOS/Linux:
 
 ```bash
-cd /path/to/trustinspect
-source .venv/bin/activate
-
-trustinspect adaptive-scan \
-  --suite owasp-llm-top10-2025-light \
-  --dynamic-tests-per-static 1 \
-  --target-url "http://127.0.0.1:8080/" \
-  --input-selector "#chatInput" \
-  --output-selector "#chat-content .bot-message p" \
-  --send-selector "#sendButton" \
-  --output reports/demo_local_vulnerable.html \
-  --headless \
-  --open
+cd "$HOME/trustinspect"
+./.venv/bin/trustinspect scan-web --suite owasp-llm-top10-2025-light --target-url "http://127.0.0.1:8080/" --input-selector "#chatInput" --output-selector "#chat-content .bot-message p" --send-selector "#sendButton" --output reports/demo_local_vulnerable.html --headless --open
 ```
 
-Then compare with hardened mode:
+Windows PowerShell:
 
-```bash
-cd demos/trustinspect-demo-chatbot
-./run_hardened.sh
+```powershell
+Set-Location "$HOME\trustinspect"
+.\.venv\Scripts\trustinspect.exe scan-web --suite owasp-llm-top10-2025-light --target-url "http://127.0.0.1:8080/" --input-selector "#chatInput" --output-selector "#chat-content .bot-message p" --send-selector "#sendButton" --output reports/demo_local_vulnerable.html --headless --open
 ```
 
-Run the same TrustInspect command again and compare the reports.
+The report is saved as `reports/demo_local_vulnerable.html`. `--open` requests opening it in your default browser; double-click the file if it does not open automatically. `--headless` hides the automated Chrome window, not the report. A sample report or successful installation alone does not verify browser scanning: inspect the scan's observations and any `ERROR` results.
+
+For the **hardened comparison**, stop Terminal 1 with **Ctrl+C**, restart the same command with `--mode hardened`, then repeat the scan with `--output reports/demo_local_hardened.html` so the first report is not overwritten. The [complete guide](docs/installation.md#compare-hardened-mode) includes the full commands, an optional adaptive scan and troubleshooting.
 
 ---
 
 ## Interactive mode
 
+From the project folder, use the executable in the environment created above.
+
+macOS/Linux:
+
 ```bash
-trustinspect
+./.venv/bin/trustinspect
+```
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\trustinspect.exe
 ```
 
 The interactive launcher lets you:

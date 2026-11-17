@@ -1,5 +1,9 @@
 # TrustInspect Demo Quickstart
 
+**Installing for the first time? Use the [from-zero installation and local-demo guide](../installation.md).** It begins with Python and Chrome installation and includes macOS, Windows PowerShell and Linux commands. No Git or AI API key is needed for that local demo.
+
+The examples below are an **advanced, external-target workflow for an already installed project**. They use POSIX shell syntax and assume the virtual environment is activated. They are retained as reference, not as an installation check. Use only targets you are authorized to test; external interfaces and selectors may change. Complete the local demo successfully before adapting this workflow to a live target.
+
 ## 1. Validate templates and catalogs
 
 ```bash
