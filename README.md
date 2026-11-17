@@ -125,7 +125,7 @@ Observations are sorted by criticality and include expandable prompt/response ev
 
 **First time, with no Python or Git installed? Start with the [from-zero installation guide](docs/installation.md).** It covers macOS, Windows and Ubuntu/Debian, including Python, Google Chrome, downloading the project and opening your first report.
 
-You need **Python 3.10+**, **Google Chrome** and an internet connection for the initial package/driver downloads. The guide uses standard Python **3.13** for a new macOS/Windows installation. Git, Homebrew, Docker, an AI API key and a paid model account are **not required** for the local demo. See the guide for the distinction between declared support and the CI-tested platform/Python combinations.
+You need **Python 3.10+**, **Google Chrome** and an internet connection for the initial package/driver downloads. Use the **Python version actually installed** (not a hard-coded `3.13`). In November 2026 the current stable release is Python 3.15.2; the guide distinguishes the official installer version from the combinations verified by CI. Git, Homebrew, Docker, an AI API key and a paid model account are **not required** for the local demo. See the guide for the distinction between declared support and the CI-tested platform/Python combinations.
 
 Download the project from **Code → Download ZIP**, extract it, and move the folder **containing `pyproject.toml`** into your home folder, named `trustinspect`. Do not overwrite an existing checkout. Git users can clone instead; both routes are explained in the guide.
 
@@ -133,9 +133,12 @@ After installing the prerequisites, run the block for your operating system **on
 
 **macOS — Terminal**
 
+First check `python3 --version` and `command -v python3`. If `python3` still invokes an older Apple/Xcode installation, use the official Python.org interpreter as described in the full guide (for example, `python3.15`).
+
 ```bash
 cd "$HOME/trustinspect"
-python3.13 -m venv .venv
+python3 --version
+python3 -m venv .venv
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/python -m pip install .
 ./.venv/bin/trustinspect --help
@@ -143,9 +146,12 @@ python3.13 -m venv .venv
 
 **Windows — PowerShell**
 
+Check `py --version` to identify the Python runtime installed by Python Install Manager.
+
 ```powershell
 Set-Location "$HOME\trustinspect"
-py -3.13 -m venv .venv
+py --version
+py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\trustinspect.exe --help

@@ -2,7 +2,7 @@
 
 This guide starts with a computer that has **no Python, no Git and no TrustInspect environment**. Follow your operating system's steps, then download the project, install it and run the local demo. You do not need to build a release, install a language model or create an AI-provider account.
 
-TrustInspect currently declares an alpha version (`0.3.0a0`). Its source declares Python 3.10 or later. This guide selects **standard CPython 3.13** for new macOS/Windows installations; the package's current CI matrix checks Linux on Python 3.10/3.11/3.13 and Windows/macOS on Python 3.11. A documented setup path is not a claim that a fresh desktop installation or every other OS/Python combination has been tested.
+TrustInspect currently declares an alpha version (`0.3.0a0`). Its source declares Python 3.10 or later. This guide uses the **stable Python version installed on the user's computer**, instead of assuming `3.13` is present. As of 17 November 2026, Python.org's latest stable macOS installer is **Python 3.15.2**. The established CI matrix checks Linux on Python 3.10/3.11/3.13 and Windows/macOS on Python 3.11; this review additionally tests macOS/Python 3.15 packaging and installation. Newer interpreters are not automatically certified across every OS. A documented setup path is not a claim that a fresh desktop installation or every other OS/Python combination has been tested.
 
 ## Before you start
 
@@ -27,31 +27,46 @@ Commands go in **Terminal** on macOS/Linux or **PowerShell** on Windows, not in 
 ### macOS
 
 1. Check **Apple menu → About This Mac**. Current Chrome requires **macOS 13 Ventura or later**; consult [Google's current requirements](https://support.google.com/chrome/answer/95346?hl=en) before proceeding on an older Mac. Python installing successfully does not establish Chrome compatibility.
-2. Open [Python's official macOS downloads](https://www.python.org/downloads/macos/), choose a stable **Python 3.13.x** release with a **macOS installer**, download the `.pkg` and complete the installer. Choose the standard build, not an experimental free-threaded build or a source archive. No Homebrew or Xcode installation is required for this path.
-3. In Finder, open **Applications → Python 3.13** and double-click **Install Certificates.command** to finish the certificate setup. This is the certificate helper supplied by the official Python installer, not a script from this repository.
+2. Open [Python's official macOS downloads](https://www.python.org/downloads/macos/), choose a stable release with a **macOS installer** (for example, Python **3.15.2** as of November 2026), download the `.pkg` and complete the installer. Choose the standard build, not an experimental free-threaded build or a source archive. The Python.org main download may be newer than older versioned commands in tutorials. No Homebrew or Xcode installation is required for this path.
+3. In Finder, open **Applications → Python 3.x** (substitute your installed minor version, such as `Python 3.15`) and double-click **Install Certificates.command** to finish the certificate setup. This is the certificate helper supplied by the official Python installer, not a script from this repository.
 4. Install [Google Chrome](https://www.google.com/chrome/), drag it to **Applications**, open it once and complete the first-run prompts. A Google sign-in is not required for the local demo.
 5. Open **Terminal** with Spotlight: press **Command+Space**, type `Terminal`, then press Enter. If Terminal was already open before the Python installation, close and reopen it.
 
-Check Python:
+Check **the version actually installed**:
 
 ```bash
-python3.13 --version
+python3 --version
+command -v python3
 ```
 
-Expected: `Python 3.13.x`, where `x` is the patch version you installed. If the command is not found, finish the installer and reopen Terminal. Do not replace or delete Apple's `/usr/bin/python3`.
+The first command should report Python **3.10 or later**; with the November 2026 Python.org installer, the expected result is normally `Python 3.15.2`. The second identifies the executable used by Terminal. There is **no reason to run `python3.13` if you installed Python 3.15**. The corresponding version-specific command is `python3.15`.
+
+If `python3` is missing, or it still runs an older Apple/Xcode Python from `/usr/bin/python3`, check the official installation directly (example for Python 3.15):
+
+```bash
+/Library/Frameworks/Python.framework/Versions/3.15/bin/python3.15 --version
+```
+
+If this works, use that same **full executable path instead of `python3`** when creating the virtual environment in step 3:
+
+```bash
+/Library/Frameworks/Python.framework/Versions/3.15/bin/python3.15 -m venv .venv
+```
+
+If you installed another minor version, replace both `3.15` segments with the version you installed. Reopen Terminal after the installer, and do not modify or delete Apple's `/usr/bin/python3`. If none of these commands works, stop here and inspect the installer result rather than continuing.
 
 ### Windows — PowerShell
 
 1. Use a supported Windows installation; this walkthrough targets **Windows 11 x64**. Check **Settings → System → About** when unsure. Consult the official Python and Chrome requirements for other Windows versions or ARM systems.
 2. Download **Python Install Manager** from [python.org/downloads/windows](https://www.python.org/downloads/windows/) and install it, or install the Python Software Foundation's Python Install Manager from the Microsoft Store. Do not download the embeddable ZIP or Python source code.
-3. Open **Start → PowerShell** as your normal user. Close and reopen PowerShell after installing the manager. Install the selected Python runtime:
+3. Open **Start → PowerShell** as your normal user. Close and reopen PowerShell after installing the manager. Check the installed default runtime:
 
 ```powershell
-pymanager install 3.13
-py -3.13 --version
+py --version
+py list
 ```
 
-Expected: `Python 3.13.x`. `pymanager` avoids ambiguity with the older `py` launcher. If it is not found, the install manager is not yet available in that terminal; reopen PowerShell and consult the [official Windows installation/troubleshooting guide](https://docs.python.org/3/using/windows.html). An existing installation for which `py -3.13 --version` already works does not need to be reinstalled.
+The output must show Python **3.10 or later**. Do not use `py -3.13` unless that specific version was installed. If the manager is installed but no runtime is available, follow the [official Windows installation instructions](https://docs.python.org/3/using/windows.html) to install the current stable runtime (for example, `pymanager install 3.15` in November 2026). Then reopen PowerShell and repeat the version check. The default `py` interpreter is used below. If the manager is not recognized, follow its official troubleshooting instructions before proceeding.
 
 4. Install [Google Chrome](https://www.google.com/chrome/), open it once and complete the first-run prompts. Use the standard installer location. You do not need a Google account.
 
@@ -110,10 +125,13 @@ A virtual environment is a `.venv` folder containing the Python environment used
 
 ### macOS commands
 
+Use the `python3` you verified in step 1. If it points to an old Apple version, substitute the explicit Python.org interpreter path shown there **for the `python3 -m venv .venv` line only**. Do not create the environment using an unsupported old Python.
+
 ```bash
 cd "$HOME/trustinspect"
 ls pyproject.toml
-python3.13 -m venv .venv
+python3 --version
+python3 -m venv .venv
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/python -m pip install .
 ./.venv/bin/python -m pip check
@@ -125,7 +143,8 @@ python3.13 -m venv .venv
 ```powershell
 Set-Location "$HOME\trustinspect"
 Get-Item .\pyproject.toml
-py -3.13 -m venv .venv
+py --version
+py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\python.exe -m pip check
@@ -292,7 +311,8 @@ A normal `pip install .` copies the package into the environment. After delibera
 
 | Symptom | Check or fix |
 | --- | --- |
-| `python3.13`, `py` or `pymanager` is not recognized | Complete the correct official Python installation and reopen the terminal. On macOS verify `python3.13 --version`; on Windows verify `py -3.13 --version`. Avoid relying on an unrelated system Python or a Microsoft Store placeholder alias. |
+| `python3.13` is not found after installing current Python on macOS | This is normal when the installed version is different (e.g., Python 3.15). Run `python3 --version`, then `command -v python3`. For the official Python 3.15 installer, check `/Library/Frameworks/Python.framework/Versions/3.15/bin/python3.15 --version` and use that executable for `-m venv` if Terminal selects Apple's older Python. |
+| `python3`, `py` or `pymanager` is not recognized | Complete the official installer, reopen Terminal/PowerShell and verify the version. Do not delete Apple's Python or disable Windows protections to work around command lookup. |
 | Python displays `>>>` | You opened the Python interpreter, not a shell. Enter `exit()` and paste commands into Terminal/PowerShell. |
 | `pyproject.toml` not found / directory is not installable | Enter the extracted folder containing `pyproject.toml`, not the outer Downloads folder, ZIP preview or inner Python package directory. |
 | Linux reports `ensurepip is not available` | Install the matching distribution `python3-venv` package. For a non-default Python version, its matching venv package is needed; do not mix interpreters. |
@@ -313,7 +333,7 @@ Report installation problems with your OS, Python version, exact command and ful
 
 ## Reference sources for prerequisite installation
 
-Official instructions checked when preparing this guide (17 November 2026): [Python on macOS](https://docs.python.org/3.13/using/mac.html), [Python on Windows](https://docs.python.org/3/using/windows.html), [Python virtual environments](https://docs.python.org/3/library/venv.html), [Ubuntu Python setup](https://documentation.ubuntu.com/ubuntu-for-developers/howto/python-setup/), [Chrome installation and requirements](https://support.google.com/chrome/answer/95346?hl=en), and [Git installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git). Vendor requirements can change; project CI coverage is listed above rather than inferred from vendor support.
+Official instructions checked when preparing this guide (17 November 2026): [Python on macOS](https://docs.python.org/3/using/mac.html), [Python on Windows](https://docs.python.org/3/using/windows.html), [Python virtual environments](https://docs.python.org/3/library/venv.html), [Ubuntu Python setup](https://documentation.ubuntu.com/ubuntu-for-developers/howto/python-setup/), [Chrome installation and requirements](https://support.google.com/chrome/answer/95346?hl=en), and [Git installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git). Vendor requirements can change; project CI coverage is listed above rather than inferred from vendor support.
 
 ---
 
