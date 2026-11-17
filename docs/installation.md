@@ -47,11 +47,13 @@ If `python3` is missing, or it still runs an older Apple/Xcode Python from `/usr
 /Library/Frameworks/Python.framework/Versions/3.15/bin/python3.15 --version
 ```
 
-If this works, use that same **full executable path instead of `python3`** when creating the virtual environment in step 3:
+If this works, proceed to the project download and **do not create the virtual environment yet**. When you reach step 3, after the `cd "$HOME/trustinspect"` command, replace **only** `python3 -m venv .venv` with:
 
 ```bash
 /Library/Frameworks/Python.framework/Versions/3.15/bin/python3.15 -m venv .venv
 ```
+
+Run this line **inside the TrustInspect project folder**, not in your home directory or Downloads.
 
 If you installed another minor version, replace both `3.15` segments with the version you installed. Reopen Terminal after the installer, and do not modify or delete Apple's `/usr/bin/python3`. If none of these commands works, stop here and inspect the installer result rather than continuing.
 
