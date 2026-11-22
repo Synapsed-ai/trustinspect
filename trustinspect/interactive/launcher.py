@@ -355,13 +355,23 @@ def _choose_dynamic() -> Tuple[int, Optional[int]]:
     return per_static, cap
 
 
+def _cli_command(subcommand: str) -> List[str]:
+    """Launch a child CLI with the same interpreter as the current launcher.
+
+    Users can run .venv/bin/trustinspect without activating the environment.
+    Looking up a bare "trustinspect" through PATH fails in that case, even
+    though the console entry point and installed package are valid.
+    """
+    return [sys.executable, "-m", "trustinspect.cli", subcommand]
+
+
 def _build_scan_command(target: TargetDefinition, suite: Dict[str, str], dynamic_per_static: int, max_dynamic: Optional[int], headless: bool, open_report: bool) -> List[str]:
     timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     out_name = f"{target.id}_{suite['id']}_{'static' if dynamic_per_static == 0 else f'dyn{dynamic_per_static}'}_{timestamp}.html"
     output = str(Path("reports") / out_name)
 
     if dynamic_per_static > 0:
-        cmd = ["trustinspect", "adaptive-scan"]
+        cmd = _cli_command("adaptive-scan")
         if suite["mode"] == "suite":
             cmd += ["--suite", suite["value"]]
         else:
@@ -370,7 +380,7 @@ def _build_scan_command(target: TargetDefinition, suite: Dict[str, str], dynamic
         if max_dynamic is not None:
             cmd += ["--max-dynamic-tests", str(max_dynamic)]
     else:
-        cmd = ["trustinspect", "scan-web"]
+        cmd = _cli_command("scan-web")
         if suite["mode"] == "suite":
             cmd += ["--suite", suite["value"]]
         else:
@@ -425,7 +435,7 @@ def _profile_only() -> None:
         return
     output = str(Path("profiles") / f"{target.id}.yaml")
     cmd = [
-        "trustinspect", "profile-target",
+        *_cli_command("profile-target"),
         "--target-url", target.url,
         "--input-selector", target.input_selector or "",
         "--output-selector", target.output_selector or "",
