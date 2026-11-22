@@ -160,6 +160,30 @@
         {% endif %}
       </section>
 
+      {% if assessment.metadata.get('scan_mode') == 'api' and assessment.metadata.get('api') %}
+      {% set api = assessment.metadata.get('api') %}
+      <section class="section-card">
+        <h2>Model API Test Context</h2>
+        <div class="meta-lines">
+          <p><strong>Model:</strong> {{ api.get('model') }}</p>
+          <p><strong>API base URL:</strong> {{ api.get('base_url') }}</p>
+          <p><strong>Request timeout:</strong> {{ api.get('request_timeout_seconds') }} seconds</p>
+          <p><strong>Maximum output tokens:</strong> {{ api.get('max_tokens') }}</p>
+          <p><strong>Temperature:</strong> {{ api.get('temperature') }}</p>
+          <p><strong>Conversation:</strong> {{ api.get('conversation_mode') }}</p>
+        </div>
+        <p class="muted">{{ api.get('scope') }} Suite categories describe the probes; they do not establish coverage of the corresponding application, infrastructure or data controls.</p>
+        {% if api.get('system_prompt') %}
+        <details><summary>System prompt sent with each request</summary><pre>{{ api.get('system_prompt') }}</pre></details>
+        {% else %}
+        <p class="muted">No system prompt was supplied by TrustInspect. The server's model configuration and chat template also affect the responses.</p>
+        {% endif %}
+        {% if report.target_profile %}
+        <p class="muted">The capability profile contains tester-provided context or a model self-description with heuristic inferences. It is not independent verification of the model's capabilities or access to sensitive assets.</p>
+        {% endif %}
+      </section>
+      {% endif %}
+
       {% if report.target_profile %}
       <section class="summary">
         <h2>Target Capability Profile</h2>

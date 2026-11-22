@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import sys
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -332,7 +332,7 @@ def _choose_suite() -> Dict[str, str]:
     return suite
 
 
-def _choose_dynamic() -> Tuple[int, Optional[int]]:
+def _choose_dynamic(default: int = 1) -> Tuple[int, Optional[int]]:
     console = _console()
     _print(console, "\n[bold green]Dynamic testing[/bold green]")
     _print(console, "Dynamic tests are contextual variants generated for each static test using the Target Capability Profile.", "dim")
@@ -340,7 +340,7 @@ def _choose_dynamic() -> Tuple[int, Optional[int]]:
     _print(console, "[1] Add 1 dynamic test per static test")
     _print(console, "[2] Add 2 dynamic tests per static test")
     _print(console, "[3] Custom")
-    choice = _int_prompt("Choose dynamic mode", default=1)
+    choice = _int_prompt("Choose dynamic mode", default=default)
     if choice == 0:
         return 0, None
     if choice == 1:
@@ -413,6 +413,64 @@ def _command_panel(console, cmd: List[str]) -> None:
         print(command)
 
 
+def _build_api_scan_command(
+    base_url: str,
+    model: str,
+    suite: Dict[str, str],
+    dynamic_per_static: int,
+    max_dynamic: Optional[int],
+    request_timeout: int,
+    max_tokens: int,
+    open_report: bool,
+) -> List[str]:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    mode = "static" if dynamic_per_static == 0 else f"dyn{dynamic_per_static}"
+    output = Path("reports") / f"{_slugify(model)}_{suite['id']}_{mode}_{timestamp}.html"
+    cmd = _cli_command("scan-api") + [
+        "--base-url", base_url,
+        "--model", model,
+        "--suite", suite["id"],
+        "--output", str(output),
+        "--request-timeout", str(request_timeout),
+        "--max-tokens", str(max_tokens),
+        "--dynamic-tests-per-static", str(dynamic_per_static),
+    ]
+    if max_dynamic is not None:
+        cmd += ["--max-dynamic-tests", str(max_dynamic)]
+    if open_report:
+        cmd.append("--open")
+    return cmd
+
+
+def _run_api_assessment() -> None:
+    console = _console()
+    _print(console, "\n[bold green]Test a local model via LM Studio[/bold green]")
+    _print(console, "In LM Studio, load the model and start the server before continuing.")
+    _print(console, "Copy its API Identifier into Model. The API base URL usually ends in /v1.")
+    base_url = _prompt("API base URL", default="http://127.0.0.1:1234/v1").strip()
+    model = _prompt("Model (API Identifier)", default="qwen3-32b").strip()
+    suite = _choose_suite()
+    dynamic_per_static, max_dynamic = _choose_dynamic(default=0)
+    if max_dynamic is not None and max_dynamic <= 0:
+        _print(console, "Maximum dynamic tests must be greater than zero. Choose Static only for zero dynamic tests.", "red")
+        return
+    if dynamic_per_static:
+        _print(console, "TrustInspect will first send a benign capability question for dynamic test generation.", "dim")
+    request_timeout = _int_prompt("Timeout per request, in seconds", default=180)
+    max_tokens = _int_prompt("Maximum output tokens per request", default=2048)
+    if request_timeout <= 0 or max_tokens <= 0:
+        _print(console, "Timeout and maximum output tokens must both be greater than zero.", "red")
+        return
+    open_report = _confirm("Open HTML report at the end?", default=True)
+    cmd = _build_api_scan_command(
+        base_url, model, suite, dynamic_per_static, max_dynamic,
+        request_timeout, max_tokens, open_report,
+    )
+    _command_panel(console, cmd)
+    if _confirm("Run now?", default=True):
+        subprocess.run(cmd)
+
+
 def _run_known_target_assessment() -> None:
     console = _console()
     target = _choose_target()
@@ -477,13 +535,14 @@ def run_interactive_launcher() -> None:
                     "[2] Add / calibrate a new target\n"
                     "[3] Profile a target only\n"
                     "[4] Validate test suites and dynamic templates\n"
-                    "[5] Exit",
+                    "[5] Exit\n"
+                    "[6] Test a local model via LM Studio",
                     title="TrustInspect Launcher",
                     border_style="green",
                 )
             )
         else:
-            print("1) Run known target\n2) Add/calibrate new target\n3) Profile only\n4) Validate\n5) Exit")
+            print("1) Run known target\n2) Add/calibrate new target\n3) Profile only\n4) Validate\n5) Exit\n6) Test a local model via LM Studio")
 
         choice = _int_prompt("Choose action", default=1)
         if choice == 1:
@@ -497,5 +556,7 @@ def run_interactive_launcher() -> None:
         elif choice == 5:
             _print(console, "Bye.", "dim")
             return
+        elif choice == 6:
+            _run_api_assessment()
         else:
             _print(console, "Invalid choice.", "red")

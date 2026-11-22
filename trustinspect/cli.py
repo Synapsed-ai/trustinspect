@@ -5,6 +5,7 @@ from trustinspect.interactive.launcher import run_interactive_launcher
 
 import argparse
 import json
+import os
 import webbrowser
 from pathlib import Path
 from urllib.parse import urlparse
@@ -30,10 +31,12 @@ from trustinspect.evidence.store import EvidenceStore
 from trustinspect.findings.engine import FindingEngine
 from trustinspect.reporting.html_report import HtmlReporter
 from trustinspect.scanners.syninspect_edu_adapter import SynInspectEduAdapter
+from trustinspect.scanners.openai_compatible import APIClientError, OpenAICompatibleClient, OpenAICompatibleScanner
+from trustinspect.analyzers.heuristic import HeuristicTrustAnalyzer
 from trustinspect.scanners.web_ui.auto_selector import detect_selectors
 from trustinspect.scanners.web_ui.selenium_scanner import WebUiScanner
 from trustinspect.targets.profile import load_target_profile, save_target_profile
-from trustinspect.targets.profiler import build_profile_from_response, profile_target_via_web_ui
+from trustinspect.targets.profiler import CAPABILITY_PROFILING_PROMPT, build_profile_from_response, profile_target_via_web_ui
 from trustinspect.testcases.generator import generate_contextual_tests
 from trustinspect.dynamic.per_static import generate_dynamic_tests_for_static_suite
 from trustinspect.testcases.loader import save_test_cases_yaml, load_test_cases_yaml
@@ -929,6 +932,199 @@ def cmd_adaptive_scan(args: argparse.Namespace) -> None:
     )
     _save_outputs(assessment, args.output, open_report=args.open)
 
+def _api_nonnegative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be zero or greater")
+    return number
+
+
+def _api_positive_int(value: str) -> int:
+    number = _api_nonnegative_int(value)
+    if number == 0:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return number
+
+
+def cmd_scan_api(args: argparse.Namespace) -> None:
+    """Run the existing test catalogs and analyzers through a model HTTP API."""
+    # Validate the complete input catalog before limiting tests or contacting the model.
+    if not args.suite and not args.test_cases:
+        args.suite = "owasp-llm-top10-2025-light"
+    _apply_suite_selection(args, "test_cases")
+    try:
+        all_static_tests = _load_test_cases(args.test_cases)
+        if not all_static_tests:
+            raise ValueError("the selected test catalog is empty")
+        profile = load_target_profile(args.target_profile) if args.target_profile else None
+        system_prompt = None
+        if args.system_prompt_file:
+            system_prompt = Path(args.system_prompt_file).read_text(encoding="utf-8")
+            if not system_prompt.strip():
+                raise ValueError("the system prompt file is empty")
+        api_key = None
+        if args.api_key_env:
+            api_key = os.environ.get(args.api_key_env)
+            if not api_key:
+                raise ValueError(f"environment variable {args.api_key_env!r} is not set or is empty")
+        client = OpenAICompatibleClient(
+            base_url=args.base_url,
+            model=args.model,
+            timeout=args.request_timeout,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            api_key=api_key,
+            system_prompt=system_prompt,
+        )
+        args.model = client.model
+        output = Path(args.output)
+        if output.suffix.lower() not in {".html", ".htm"}:
+            raise ValueError("--output must end in .html or .htm (JSON evidence is saved alongside it)")
+        profile_output = Path(args.profile_output) if args.profile_output else output.with_name(output.stem + "_profile.yaml")
+        generated_output = Path(args.generated_tests_output) if args.generated_tests_output else output.with_name(output.stem + "_dynamic_tests.yaml")
+        output_paths = [output, output.with_suffix(".json")]
+        if args.dynamic_tests_per_static:
+            output_paths.append(generated_output)
+            if not args.target_profile:
+                output_paths.append(profile_output)
+        resolved_outputs = [p.resolve() for p in output_paths]
+        inputs = [Path(p).resolve() for p in (args.test_cases, args.target_profile, args.system_prompt_file) if p]
+        if len(set(resolved_outputs)) != len(resolved_outputs) or set(inputs).intersection(resolved_outputs):
+            raise ValueError("report, profile and generated-test outputs must be distinct and must not overwrite input files")
+    except (ValueError, OSError, TypeError, AttributeError, yaml.YAMLError) as exc:
+        raise SystemExit(f"scan-api: {exc}") from None
+
+    static_tests = _limit_test_cases(all_static_tests, args.max_tests, label="API static tests")
+    _mark_test_origin(static_tests, "baseline")
+    target_id = args.target_id or _safe_target_id(args.model)
+    target_name = args.target_name or args.model
+    ui = TerminalUI(
+        enabled=not args.quiet_ui,
+        show_banner=not args.no_banner,
+        show_full_prompt=args.show_full_prompt,
+        show_full_response=args.show_full_response,
+        prompt_chars=args.prompt_chars,
+        response_chars=args.response_chars,
+    )
+    ui.banner(version=_trustinspect_version(), license_name=args.license_name)
+    ui.target_panel(client.endpoint, target_name, args.test_cases, mode="api")
+    started_at = now_utc()
+    profile_path = args.target_profile
+    generated_tests: list[TestCase] = []
+    if args.dynamic_tests_per_static:
+        if profile is None:
+            print("[+] Profiling model capabilities through the API with one benign request...")
+            try:
+                completion = client.complete(CAPABILITY_PROFILING_PROMPT)
+            except APIClientError as exc:
+                raise SystemExit(f"API profiling failed ({exc.code}): {exc}. No test requests were sent.") from None
+            profile = build_profile_from_response(
+                client.endpoint, completion.content, target_name=target_name,
+            )
+            # A model's self-description supplies context, not evidence of access to tools or data.
+            profile.metadata.update({
+                "profile_source": "api_model_self_description",
+                "capabilities_verified": False,
+                "sensitive_assets_source": "heuristic_context_only",
+                "model": args.model,
+                "api_response": completion.metadata,
+            })
+            profile_path = str(profile_output)
+        profile.target_id = target_id
+        profile.name = target_name
+        profile.url = client.endpoint
+        profile.target_type = "openai-compatible-api"
+        # The authentication token is never persisted, including if a server echoes it.
+        profile = type(profile).from_dict(client.redact(profile.to_dict()))
+        generated_tests = generate_dynamic_tests_for_static_suite(
+            static_tests=static_tests,
+            target_profile=profile,
+            dynamic_tests_per_static=args.dynamic_tests_per_static,
+            max_dynamic_tests=args.max_dynamic_tests,
+            template_dir=builtin_directory("examples/dynamic_templates"),
+        )
+        _mark_test_origin(generated_tests, "adaptive")
+        if not args.target_profile:
+            save_target_profile(profile, profile_output)
+            print(f"[+] Target profile written to {profile_output}")
+        save_test_cases_yaml(generated_tests, generated_output, metadata={
+            "generated_by": "trustinspect.dynamic.per_static",
+            "target_profile": str(profile_path),
+            "mode": "adaptive-per-static-template",
+            "dynamic_tests_per_static": args.dynamic_tests_per_static,
+            "max_dynamic_tests": args.max_dynamic_tests,
+            "static_tests_count": len(static_tests),
+        })
+        print(f"[+] Generated {len(generated_tests)} dynamic API tests: {generated_output}")
+
+    api_context = client.redact({
+        "base_url": client.base_url,
+        "endpoint": client.endpoint,
+        "model": args.model,
+        "request_timeout_seconds": args.request_timeout,
+        "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
+        "conversation_mode": "independent request for every test",
+        "system_prompt": system_prompt or "",
+        "authentication": "bearer token from environment" if api_key else "none",
+        "scope": "Text responses to behavioral probes. Tool execution, retrieval, private-data access and infrastructure controls are not verified by this transport.",
+    })
+    target = Target(
+        id=target_id, name=target_name, url=client.endpoint, target_type="openai-compatible-api",
+        metadata={"scanner": "trustinspect.openai-compatible-http", "api": api_context},
+    )
+    cases = static_tests + generated_tests
+    scanner = OpenAICompatibleScanner(client=client, progress_callback=ui.handle_event if not args.quiet_ui else None)
+    observations = scanner.run(target, cases)
+    assessment = Assessment(
+        id=args.assessment_id or f"assessment-{target_id}",
+        name=args.name or f"TrustInspect API Assessment — {target_name}",
+        target=target,
+        observations=observations,
+        started_at=started_at,
+        completed_at=now_utc(),
+        metadata=client.redact({
+            **_suite_metadata_from_args(args),
+            "scan_mode": "api",
+            "assessment_mode": "adaptive" if args.dynamic_tests_per_static else "static",
+            "model": args.model,
+            "api": api_context,
+            "scanner_version": OpenAICompatibleScanner.SCANNER_VERSION,
+            "analyzer_version": HeuristicTrustAnalyzer.ANALYZER_VERSION,
+            "engine_versions": {
+                "scanner": OpenAICompatibleScanner.SCANNER_VERSION,
+                "analyzer": HeuristicTrustAnalyzer.ANALYZER_VERSION,
+                "target_profiler": "api-model-self-description" if args.dynamic_tests_per_static and not args.target_profile else "provided-profile" if profile else "not used",
+            },
+            "test_cases": str(args.test_cases),
+            "requested_max_tests": args.max_tests,
+            "available_static_tests_count": len(all_static_tests),
+            "static_tests_count": len(static_tests),
+            "baseline_tests_count": len(static_tests),
+            "dynamic_tests_count": len(generated_tests),
+            "adaptive_tests_count": len(generated_tests),
+            "total_tests_count": len(cases),
+            "executed_test_cases_count": len(observations),
+            "dynamic_tests_per_static": args.dynamic_tests_per_static,
+            "max_dynamic_tests": args.max_dynamic_tests,
+            "target_profile": _profile_to_report_dict(profile),
+            "target_profile_path": str(profile_path or ""),
+            "generated_tests_path": str(generated_output) if args.dynamic_tests_per_static else "",
+            "generated_test_plan": _generated_test_plan_from_dynamic_per_static(generated_tests),
+            "generation_strategy": "per-static-deterministic-template" if args.dynamic_tests_per_static else "static catalog",
+        }),
+    )
+    _generate_findings(assessment)
+    _save_outputs(assessment, output, open_report=args.open)
+    errors = sum(obs.classification == Classification.ERROR for obs in observations)
+    if errors:
+        print(f"[!] {errors} test(s) could not be evaluated. Review ERROR evidence in the report.", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def _add_ui_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-banner", action="store_true", help="Disable the TrustInspect ASCII banner")
     parser.add_argument("--quiet-ui", action="store_true", help="Disable the live terminal UI and print only final paths")
@@ -1036,6 +1232,33 @@ def main() -> None:
     _add_live_output_args(adaptive)
     _add_ui_args(adaptive)
     adaptive.set_defaults(func=cmd_adaptive_scan)
+
+    api = sub.add_parser("scan-api", help="Test an LM Studio or OpenAI-compatible chat API without a browser")
+    api.add_argument("--base-url", default="http://127.0.0.1:1234/v1", help="API base URL, normally http://127.0.0.1:1234/v1 for LM Studio")
+    api.add_argument("--model", required=True, help="Exact model API Identifier shown by LM Studio")
+    api.add_argument("--api-key-env", help="Name of an environment variable containing the optional API token")
+    api.add_argument("--request-timeout", type=float, default=180.0, help="HTTP network-operation timeout in seconds (default: 180; not a total scan budget)")
+    api.add_argument("--max-tokens", type=_api_positive_int, default=2048, help="Maximum output tokens per request, including model reasoning (default: 2048)")
+    api.add_argument("--temperature", type=float, default=0.6, help="Sampling temperature (default: 0.6, suitable for Qwen3 thinking mode)")
+    api.add_argument("--system-prompt-file", help="UTF-8 system prompt sent with every independent request; recorded in evidence")
+    api.add_argument("--target-id", default=None)
+    api.add_argument("--target-name", default=None)
+    api_catalog = api.add_mutually_exclusive_group()
+    api_catalog.add_argument("--test-cases", help="Custom validated YAML catalog")
+    api_catalog.add_argument("--suite", choices=available_suites(), help="Built-in suite; defaults to owasp-llm-top10-2025-light")
+    api.add_argument("--max-tests", type=_api_positive_int, help="Limit static tests before generating any dynamic variants")
+    api.add_argument("--dynamic-tests-per-static", "--dynamic-per-static", dest="dynamic_tests_per_static", type=_api_nonnegative_int, default=0, help="Contextual variants per selected static test (default: 0)")
+    api.add_argument("--max-dynamic-tests", type=_api_positive_int, help="Optional cap for dynamic variants only")
+    api.add_argument("--target-profile", help="Existing capability profile; otherwise dynamic mode profiles the model through the API")
+    api.add_argument("--profile-output", help="Generated profile path; default: <report>_profile.yaml")
+    api.add_argument("--generated-tests-output", help="Generated test catalog path; default: <report>_dynamic_tests.yaml")
+    api.add_argument("--output", default="reports/lm_studio_assessment.html")
+    api.add_argument("--assessment-id", default=None)
+    api.add_argument("--name", default=None)
+    api.add_argument("--open", action="store_true", help="Open the HTML report after generation")
+    _add_live_output_args(api)
+    _add_ui_args(api)
+    api.set_defaults(func=cmd_scan_api)
 
     args = parser.parse_args()
     args.func(args)
