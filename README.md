@@ -26,6 +26,7 @@ The following videos demonstrate TrustInspect in action against PromptAirlines, 
 TrustInspect helps testers and assurance teams:
 
 - run static Trustworthy AI test suites against LLM and agentic web UIs;
+- test local models directly through LM Studio's OpenAI-compatible API;
 - profile a target application to understand its declared role, capabilities, boundaries, likely sensitive assets, and risk areas;
 - generate dynamic contextual tests from the target capability profile;
 - collect prompt, response, screenshot, timing, and rationale evidence (including local DOM snapshots on execution errors for diagnosis);
@@ -54,6 +55,7 @@ This repository is currently an **early v0.3-alpha** development version.
 Supported capabilities include:
 
 - Web UI scanner using Selenium;
+- OpenAI-compatible API scanner for local models served by LM Studio;
 - interactive launcher;
 - target registry and target calibration workflow;
 - static test suites;
@@ -68,7 +70,7 @@ Known limitations:
 - public AI challenge targets may change their UI and require selector recalibration;
 - full suites can be slow;
 - dynamic generation is deterministic/template-based;
-- RAG/vector-store adapters, agent trace adapters, and API adapters are roadmap items;
+- RAG/vector-store adapters, agent trace adapters, and additional API protocols are roadmap items;
 - web UI testing depends on DOM selectors and browser behavior.
 
 ---
@@ -125,7 +127,7 @@ Observations are sorted by criticality and include expandable prompt/response ev
 
 **First time, with no Python or Git installed? Start with the [from-zero installation guide](docs/installation.md).** It covers macOS, Windows and Ubuntu/Debian, including Python, Google Chrome, downloading the project and opening your first report.
 
-You need **Python 3.10+**, **Google Chrome** and an internet connection for the initial package/driver downloads. The guide uses standard Python **3.13** for a new macOS/Windows installation. Git, Homebrew, Docker, an AI API key and a paid model account are **not required** for the local demo. See the guide for the distinction between declared support and the CI-tested platform/Python combinations.
+You need **Python 3.10+** and an internet connection for the initial package downloads. **Google Chrome** is also required for web UI scans and the local demo; API scans do not use it. The guide uses standard Python **3.13** for a new macOS/Windows installation. Git, Homebrew, Docker, an AI API key and a paid model account are **not required** for the local demo. See the guide for the distinction between declared support and the CI-tested platform/Python combinations.
 
 Download the project from **Code → Download ZIP**, extract it, and move the folder **containing `pyproject.toml`** into your home folder, named `trustinspect`. Do not overwrite an existing checkout. Git users can clone instead; both routes are explained in the guide.
 
@@ -161,7 +163,7 @@ python3 -m venv .venv
 ./.venv/bin/trustinspect --help
 ```
 
-These commands deliberately use the executables inside `.venv`: you do not need to activate the environment, change PowerShell execution policy or install packages into system Python. Selenium and `webdriver-manager` are installed with TrustInspect; Chrome must also be installed. The scanner uses `webdriver-manager` to obtain ChromeDriver on first use. Do not disable TLS verification or the browser sandbox to bypass setup errors.
+These commands deliberately use the executables inside `.venv`: you do not need to activate the environment, change PowerShell execution policy or install packages into system Python. Selenium and `webdriver-manager` are installed with TrustInspect; Chrome must also be installed for web UI scans. The web scanner uses `webdriver-manager` to obtain ChromeDriver on first use. Do not disable TLS verification or the browser sandbox to bypass setup errors.
 
 ---
 
@@ -228,11 +230,26 @@ Windows PowerShell:
 The interactive launcher lets you:
 
 - select a known target;
+- test a local LM Studio model through its API (menu option 6);
 - calibrate a new target;
 - select a static test suite;
 - choose dynamic tests per static test;
 - preview the command before execution;
 - open the HTML report.
+
+---
+
+## Test a local model with LM Studio
+
+Start LM Studio's local server, copy the loaded model's **API Identifier**, then run this from your updated project folder (macOS/Linux):
+
+```bash
+./.venv/bin/trustinspect scan-api --base-url http://127.0.0.1:1234/v1 --model qwen3-32b --suite owasp-llm-top10-2025-light --max-tests 2 --output reports/lmstudio_smoke.html --open
+```
+
+Replace `qwen3-32b` with your model's identifier. This first run sends two tests directly to the API and creates HTML/JSON reports without Chrome or CSS selectors. Remove `--max-tests 2` for the complete static suite; add `--dynamic-tests-per-static 1` for contextual variants generated from an API capability profile.
+
+The [LM Studio guide](docs/lm-studio.md) covers updating a ZIP installation, the interactive launcher, authentication, request limits, and error handling.
 
 ---
 
@@ -312,7 +329,7 @@ Public AI challenge targets included in the registry are provided for research a
 
 ## Roadmap
 
-- API scanner support;
+- additional API protocols and provider adapters;
 - RAG/vector-store adapters;
 - agent trace adapters;
 - Docker image;

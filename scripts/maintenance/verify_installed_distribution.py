@@ -115,10 +115,61 @@ with patch.object(cli, "_run_web_assessment", capture):
         assert seen[-1]
 assert any(t.metadata.get("source") == "adaptive" for t in seen[-1])
 
+# Exercise the installed API connector over real loopback HTTP. This checks
+# packaging, the public CLI, profiling, dynamic resources and both reports on
+# each supported wheel platform without an external model or browser.
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import threading
+
+api_requests = []
+class LocalAPIHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        api_requests.append((self.path, payload))
+        body = json.dumps({
+            "model": "local-packaging-fixture",
+            "choices": [{"message": {"role": "assistant", "content": "I am a local assistant. I cannot disclose private information."}, "finish_reason": "stop"}],
+        }).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        pass
+
+api_server = ThreadingHTTPServer(("127.0.0.1", 0), LocalAPIHandler)
+api_server.daemon_threads = True
+api_worker = threading.Thread(target=lambda: api_server.serve_forever(poll_interval=0.01), daemon=True)
+api_worker.start()
+try:
+    api_args = ["trustinspect", "scan-api", "--base-url", f"http://127.0.0.1:{api_server.server_port}/v1",
+                "--model", "local-packaging-fixture", "--suite", "owasp-llm-top10-2025-light",
+                "--max-tests", "1", "--dynamic-tests-per-static", "1", "--request-timeout", "5",
+                "--output", "installed-api.html", "--quiet-ui", "--no-banner"]
+    with patch.object(sys, "argv", api_args):
+        cli.main()
+finally:
+    api_server.shutdown()
+    api_server.server_close()
+    api_worker.join(timeout=2)
+api_result = json.loads(Path("installed-api.json").read_text(encoding="utf-8"))
+assert len(api_requests) == 3, api_requests  # One profile + one static + one dynamic.
+assert all(path == "/v1/chat/completions" and body["model"] == "local-packaging-fixture" for path, body in api_requests)
+assert all(len(body["messages"]) == 1 and body["stream"] is False for _, body in api_requests)
+assert api_result["target"]["target_type"] == "openai-compatible-api"
+assert len(api_result["observations"]) == 2
+assert api_result["metadata"]["static_tests_count"] == api_result["metadata"]["dynamic_tests_count"] == 1
+assert "openai-compatible" in api_result["metadata"]["scanner_version"]
+assert "Model API Test Context" in Path("installed-api.html").read_text(encoding="utf-8")
+assert Path("installed-api_profile.yaml").is_file()
+assert Path("installed-api_dynamic_tests.yaml").is_file()
+
 # Resource and source bytes must remain unchanged by generation/archive/reporting.
 for relative, expected in expectations.items():
     assert hashlib.sha256((installed.parent / relative).read_bytes()).hexdigest() == expected, relative
-print("INSTALLED_PROBE=" + json.dumps({"installed_module": str(installed), "python": sys.version.split()[0], "suites": counts, "resources": len(resources.RESOURCE_FILES), "dynamic_tests": len(generated), "per_static_variants": len(variants), "cli_plans_without_browser": len(plans), "targets": len(registry.list()), "immutable_package_files": len(expectations)}))
+print("INSTALLED_PROBE=" + json.dumps({"installed_module": str(installed), "python": sys.version.split()[0], "suites": counts, "resources": len(resources.RESOURCE_FILES), "dynamic_tests": len(generated), "per_static_variants": len(variants), "cli_plans_without_browser": len(plans), "api_http_requests": len(api_requests), "api_observations": len(api_result["observations"]), "targets": len(registry.list()), "immutable_package_files": len(expectations)}))
 '''
 
 
